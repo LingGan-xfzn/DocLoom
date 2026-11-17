@@ -34,7 +34,7 @@ Dark Ink Studio：墨黑三层底色、青绿强调色、琥珀动作色、无 e
 需要 [.NET 10 SDK](https://dotnet.microsoft.com/download)（Windows）。
 
 ```powershell
-git clone <repo>
+git clone https://github.com/LingGan-xfzn/DocLoom.git
 cd DocLoom
 
 # 调试运行
