@@ -46,6 +46,12 @@ dotnet publish src/DocLoom.App -c Release -r win-x64 --self-contained true -o di
 
 产物：`dist/DocLoom.exe`。
 
+## 持续集成
+
+仓库附带 CI 模板 `docs/ci/build.yml.example`：复制到 `.github/workflows/build.yml` 并推送即可启用 Windows 构建、单文件产物上传，打 `v*` tag 时自动发布 Release 资产。
+
+> 该模板未默认启用：向 `.github/workflows` 推送需要凭据具备 `workflow` 权限范围。
+
 ## 命令行版
 
 同一套解析内核也提供 CLI，适合批处理与自检：
