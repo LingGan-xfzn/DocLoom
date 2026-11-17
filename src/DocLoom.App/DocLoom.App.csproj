@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>DocLoom</AssemblyName>
+    <RootNamespace>DocLoom.App</RootNamespace>
+    <ApplicationIcon>Assets\docloom.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.0.0</Version>
+    <Authors>DocLoom contributors</Authors>
+    <Company>DocLoom</Company>
+    <Product>DocLoom 文档织机</Product>
+    <AssemblyTitle>DocLoom 文档织机</AssemblyTitle>
+    <Description>把 Word 文档拆成标题、段落、署名与图片的桌面工具。</Description>
+    <Copyright>Copyright (c) 2026 DocLoom contributors</Copyright>
+    <NeutralLanguage>zh-Hans</NeutralLanguage>
+    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System.IO" />
+    <Using Include="System.Threading" />
+    <Using Include="System.Threading.Tasks" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DocLoom.Core\DocLoom.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\docloom.ico" />
+  </ItemGroup>
+
+</Project>

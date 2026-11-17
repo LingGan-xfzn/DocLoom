@@ -1,0 +1,1093 @@
+<Window x:Class="DocLoom.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:DocLoom.App.ViewModels"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="DocLoom 文档织机"
+        Width="1400" Height="890"
+        MinWidth="1160" MinHeight="740"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        Background="{StaticResource BgBrush}"
+        FontFamily="{StaticResource UiFont}"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        AllowDrop="True"
+        DragEnter="Window_DragEnter"
+        DragOver="Window_DragOver"
+        DragLeave="Window_DragLeave"
+        Drop="Window_Drop">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            ResizeBorderThickness="6"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+
+        <!-- 投放区：整块可点，虚线框在拖拽时点亮 -->
+        <Style x:Key="DropZoneButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid Height="168">
+                            <Rectangle x:Name="Dash"
+                                       RadiusX="13" RadiusY="13"
+                                       Stroke="{StaticResource BorderStrongBrush}"
+                                       StrokeThickness="1.3"
+                                       StrokeDashArray="4 3"
+                                       Fill="{StaticResource SurfaceRaisedBrush}" />
+                            <ContentPresenter Margin="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Dash" Property="Stroke" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Dash" Property="Fill" Value="#1214B8A6" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Dash" Property="Fill" Value="#1E14B8A6" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding DragActive}" Value="True">
+                                <Setter TargetName="Dash" Property="Stroke" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Dash" Property="Fill" Value="#1F14B8A6" />
+                                <Setter TargetName="Dash" Property="StrokeThickness" Value="1.8" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 最近文档项 -->
+        <Style x:Key="RecentListBox" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="ItemBorder"
+                                            Background="Transparent"
+                                            BorderBrush="Transparent"
+                                            BorderThickness="1"
+                                            CornerRadius="9"
+                                            Padding="9,7"
+                                            Margin="0,1">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource CardHoverBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#4D2DD4BF" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 统计格 -->
+        <DataTemplate x:Key="StatCellTemplate">
+            <StackPanel Margin="0,0,0,10">
+                <TextBlock Text="{Binding Label}" Style="{StaticResource TextLabel}" />
+                <TextBlock Text="{Binding Value}" Style="{StaticResource TextValue}" Margin="0,2,0,0" />
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- 正文段落卡 -->
+        <DataTemplate x:Key="ParagraphTemplate" DataType="{x:Type vm:ParagraphItemViewModel}">
+            <Border x:Name="Card"
+                    Background="{StaticResource CardBrush}"
+                    BorderBrush="{StaticResource BorderSoftBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="14,12"
+                    Margin="0,0,0,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0"
+                            Width="28" Height="28"
+                            CornerRadius="8"
+                            Background="{StaticResource SurfaceRaisedBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            VerticalAlignment="Top"
+                            Margin="0,1,12,0">
+                        <TextBlock Text="{Binding IndexText}"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Text}"
+                                   Style="{StaticResource TextBase}"
+                                   LineHeight="24"
+                                   LineStackingStrategy="BlockLineHeight"
+                                   Foreground="#FFDCE9F0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                            <TextBlock Text="{Binding LengthText}" Style="{StaticResource TextMuted}" />
+                            <Border Style="{StaticResource Chip}"
+                                    Background="{StaticResource SurfaceRaisedBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    Margin="8,0,0,0"
+                                    Padding="6,1"
+                                    Visibility="{Binding HasImages, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="{Binding ImageBadge}"
+                                           FontSize="10.5"
+                                           Foreground="{StaticResource TextMutedBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Button Grid.Column="2"
+                            Style="{StaticResource SubtleButton}"
+                            Command="{Binding CopyCommand}"
+                            AutomationProperties.Name="复制该段落"
+                            VerticalAlignment="Top"
+                            Margin="10,0,0,0"
+                            ToolTip="复制这一段">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource IconCopy}"
+                                  Style="{StaticResource IconStrokeSmall}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <TextBlock x:Name="CopyLabel"
+                                       Text="复制"
+                                       Margin="6,0,0,0"
+                                       FontSize="12"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <Trigger SourceName="Card" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Card" Property="Background" Value="{StaticResource CardHoverBrush}" />
+                    <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+                </Trigger>
+                <DataTrigger Binding="{Binding IsCopied}" Value="True">
+                    <Setter TargetName="CopyLabel" Property="Text" Value="已复制" />
+                    <Setter TargetName="CopyLabel" Property="Foreground" Value="{StaticResource AccentBrush}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- 署名 chip -->
+        <DataTemplate x:Key="AuthorTemplate" DataType="{x:Type vm:AuthorItemViewModel}">
+            <Border Style="{StaticResource InnerCard}" Padding="10,6" Margin="0,0,8,8">
+                <StackPanel Orientation="Horizontal">
+                    <Path Data="{StaticResource IconUser}"
+                          Style="{StaticResource IconStrokeSmall}"
+                          Stroke="{StaticResource AccentBrush}" />
+                    <TextBlock Text="{Binding Display}"
+                               Margin="7,0,8,0"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <Button x:Name="CopyAuthor"
+                            Style="{StaticResource IconButton}"
+                            Width="24" Height="24"
+                            Command="{Binding CopyCommand}"
+                            AutomationProperties.Name="复制署名"
+                            ToolTip="复制署名">
+                        <Path Data="{StaticResource IconCopy}"
+                              Style="{StaticResource IconStrokeSmall}"
+                              Stroke="{StaticResource TextMutedBrush}" />
+                    </Button>
+                </StackPanel>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsCopied}" Value="True">
+                    <Setter TargetName="CopyAuthor" Property="Opacity" Value="0.4" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- 图片卡 -->
+        <DataTemplate x:Key="ImageTemplate" DataType="{x:Type vm:ImageItemViewModel}">
+            <Border x:Name="ImageCard"
+                    Style="{StaticResource InnerCard}"
+                    Margin="0,0,9,9"
+                    Width="158"
+                    ClipToBounds="True">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="100" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Background="{StaticResource BgBrush}">
+                        <Rectangle RadiusX="11" RadiusY="11">
+                            <Rectangle.Fill>
+                                <ImageBrush ImageSource="{Binding Thumbnail}" Stretch="UniformToFill" />
+                            </Rectangle.Fill>
+                        </Rectangle>
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding HasThumbnail, Converter={StaticResource InverseBoolToVisibility}}">
+                            <Path Data="{StaticResource IconImage}"
+                                  Style="{StaticResource IconStroke}"
+                                  Width="24" Height="24"
+                                  Stroke="{StaticResource BorderStrongBrush}" />
+                            <TextBlock Text="矢量图" FontSize="10" Margin="0,6,0,0"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
+
+                        <CheckBox Style="{StaticResource ImageCheckBox}"
+                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                  AutomationProperties.Name="{Binding FileNamePreview}"
+                                  HorizontalAlignment="Left"
+                                  VerticalAlignment="Top"
+                                  Margin="7" />
+
+                        <Border Background="#C40A0F14"
+                                CornerRadius="6"
+                                Padding="6,2"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Margin="7">
+                            <TextBlock Text="{Binding SequenceText}"
+                                       FontFamily="{StaticResource MonoFont}"
+                                       FontSize="10"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                        </Border>
+                    </Grid>
+
+                    <StackPanel Grid.Row="1" Margin="9,7,9,8">
+                        <TextBlock Text="{Binding FileNamePreview}"
+                                   FontSize="11.5"
+                                   FontFamily="{StaticResource UiFont}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="{Binding MetaText}"
+                                   FontSize="10"
+                                   Margin="0,2,0,0"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{StaticResource TextMutedBrush}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="ImageCard" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                </DataTrigger>
+                <Trigger SourceName="ImageCard" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="ImageCard" Property="Background" Value="{StaticResource CardHoverBrush}" />
+                </Trigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Toast -->
+        <Style x:Key="ToastStyle" TargetType="Border">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <TranslateTransform Y="10" />
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsToastVisible}" Value="True">
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.18" />
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                 To="0" Duration="0:0:0.24">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseOut" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.16" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.ExitActions>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+    </Window.Resources>
+
+    <Border x:Name="RootBorder"
+            Background="{StaticResource BgBrush}"
+            BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="50" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="32" />
+            </Grid.RowDefinitions>
+
+            <!-- ================= 标题栏 ================= -->
+            <Grid x:Name="TitleBar" Grid.Row="0" Background="Transparent"
+                  MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="18,0,0,0" VerticalAlignment="Center">
+                    <Border Width="28" Height="28" CornerRadius="9" Background="{StaticResource AccentGradientBrush}">
+                        <Path Data="{StaticResource IconLayers}"
+                              Style="{StaticResource IconStroke}"
+                              Width="16" Height="16"
+                              Stroke="{StaticResource AccentInkBrush}"
+                              StrokeThickness="1.9"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="DocLoom" Margin="10,0,0,0" VerticalAlignment="Center"
+                               FontFamily="{StaticResource DisplayFont}"
+                               FontSize="15" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <Border Background="{StaticResource SurfaceRaisedBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="5"
+                            Padding="6,1"
+                            Margin="8,0,0,0"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="文档织机" FontSize="10.5"
+                                   Foreground="{StaticResource TextMutedBrush}" />
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Ellipse Width="6" Height="6" Fill="{StaticResource AccentBrush}" Margin="0,0,8,0"
+                             Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="{Binding Current.FileName, FallbackValue=未打开文档, TargetNullValue=未打开文档}"
+                               FontSize="12.5"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               MaxWidth="520" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,10,0" VerticalAlignment="Center">
+                    <Button Style="{StaticResource TitleBarButton}" Click="Minimize_Click" ToolTip="最小化">
+                        <Path Data="{StaticResource IconMinimize}" Style="{StaticResource IconStrokeSmall}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
+                    <Button Style="{StaticResource TitleBarButton}" Click="MaximizeRestore_Click" ToolTip="最大化">
+                        <Path x:Name="MaxIcon" Data="{StaticResource IconMaximize}" Style="{StaticResource IconStrokeSmall}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
+                    <Button Style="{StaticResource CloseTitleBarButton}" Click="Close_Click" ToolTip="关闭">
+                        <Path Data="{StaticResource IconClose}" Style="{StaticResource IconStrokeSmall}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- ================= 主体三栏 ================= -->
+            <Grid Grid.Row="1" Margin="14,4,14,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="296" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="376" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 区段：左栏 -->
+                <Border Grid.Column="0" Style="{StaticResource PanelCard}" Padding="16">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Button Grid.Row="0"
+                                Style="{StaticResource DropZoneButton}"
+                                Command="{Binding OpenFileCommand}"
+                                AutomationProperties.Name="选择 Word 文档"
+                                ToolTip="点击选择，或把文件拖到窗口任意位置">
+                            <StackPanel HorizontalAlignment="Center">
+                                <Border Width="42" Height="42" CornerRadius="13"
+                                        Background="{StaticResource AccentSoftBrush}"
+                                        BorderBrush="#4D2DD4BF" BorderThickness="1"
+                                        HorizontalAlignment="Center">
+                                    <Path Data="{StaticResource IconUpload}"
+                                          Style="{StaticResource IconStroke}"
+                                          Width="20" Height="20"
+                                          Stroke="{StaticResource AccentBrush}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="把 Word 文档拖到这里"
+                                           FontSize="13.5" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,12,0,0"
+                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                <TextBlock Text="支持 .docx / .doc · 也可点击选择"
+                                           FontSize="11.5"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,5,0,0"
+                                           Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- 当前文档信息 -->
+                        <Border Grid.Row="1" Style="{StaticResource InnerCard}" Padding="13,12" Margin="0,12,0,0"
+                                Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Current.FileName}"
+                                               FontSize="12.5" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Current.FilePath}"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <Border Grid.Column="1" Style="{StaticResource Chip}" Margin="8,0,0,0">
+                                        <TextBlock Text="{Binding Current.ExtensionLabel}"
+                                                   FontSize="9.5" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AccentBrush}" />
+                                    </Border>
+                                    <Button Grid.Column="2"
+                                            Style="{StaticResource IconButton}"
+                                            Width="26" Height="26"
+                                            Margin="6,0,0,0"
+                                            Command="{Binding Current.OpenSourceCommand}"
+                                            AutomationProperties.Name="打开原文档"
+                                            ToolTip="用默认程序打开原文档">
+                                        <Path Data="{StaticResource IconArrowUpRight}"
+                                              Style="{StaticResource IconStrokeSmall}"
+                                              Stroke="{StaticResource TextMutedBrush}" />
+                                    </Button>
+                                </Grid>
+                                <TextBlock Text="{Binding Current.FileMetaText}"
+                                           FontSize="11"
+                                           Margin="0,4,0,0"
+                                           Foreground="{StaticResource TextMutedBrush}" />
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <StackPanel Grid.Row="0" Grid.Column="0">
+                                        <TextBlock Text="总字数" Style="{StaticResource TextLabel}" />
+                                        <TextBlock Text="{Binding Current.CharCountText}" Style="{StaticResource TextValue}" Margin="0,1,0,8" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="1">
+                                        <TextBlock Text="正文段落" Style="{StaticResource TextLabel}" />
+                                        <TextBlock Text="{Binding Current.ParagraphCountText}" Style="{StaticResource TextValue}" Margin="0,1,0,8" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="0">
+                                        <TextBlock Text="图片" Style="{StaticResource TextLabel}" />
+                                        <TextBlock Text="{Binding Current.ImageCountText}" Style="{StaticResource TextValue}" Margin="0,1,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="1">
+                                        <TextBlock Text="基准字号" Style="{StaticResource TextLabel}" />
+                                        <TextBlock Text="{Binding Current.FontSizeText}" Style="{StaticResource TextValue}" Margin="0,1,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 最近文档 -->
+                        <Grid Grid.Row="2" Margin="0,14,0,0"
+                              Visibility="{Binding RecentDocuments.Count, Converter={StaticResource CountToVisibility}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" Margin="2,0,0,6">
+                                <TextBlock Text="本次会话" Style="{StaticResource TextSectionTitle}" />
+                                <Button HorizontalAlignment="Right"
+                                        Style="{StaticResource SubtleButton}"
+                                        Command="{Binding ClearRecentCommand}"
+                                        AutomationProperties.Name="清空本次会话"
+                                        Padding="4,0"
+                                        ToolTip="清空列表">
+                                    <TextBlock Text="清空" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" />
+                                </Button>
+                            </Grid>
+                            <ListBox Grid.Row="1"
+                                     Style="{StaticResource RecentListBox}"
+                                     ItemsSource="{Binding RecentDocuments}"
+                                     SelectedItem="{Binding Current, Mode=TwoWay}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Path Grid.Column="0"
+                                                  Data="{StaticResource IconFile}"
+                                                  Style="{StaticResource IconStrokeSmall}"
+                                                  Stroke="{StaticResource TextMutedBrush}"
+                                                  Margin="0,0,9,0"
+                                                  VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding FileName}"
+                                                           FontSize="11.5"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{StaticResource TextSecondaryBrush}" />
+                                                <TextBlock FontSize="10" Margin="0,2,0,0"
+                                                           Foreground="{StaticResource TextMutedBrush}">
+                                                    <Run Text="{Binding ParagraphCountText, Mode=OneWay}" />
+                                                    <Run Text=" 段 · " />
+                                                    <Run Text="{Binding ImageCountText, Mode=OneWay}" />
+                                                    <Run Text=" 图" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- 区段：中栏 -->
+                <Grid Grid.Column="1" Margin="12,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 标题与署名 -->
+                    <Border Grid.Row="0" Style="{StaticResource PanelCard}" Padding="0"
+                            Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <Border Height="3" VerticalAlignment="Top" CornerRadius="16,16,0,0"
+                                    Background="{StaticResource AccentGradientBrush}" Opacity="0.85" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="330" Padding="20,18,20,16">
+                                <StackPanel>
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Border Style="{StaticResource Chip}" Padding="7,2">
+                                                <TextBlock Text="标题 / 主题" FontSize="9.5" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource AccentBrush}" />
+                                            </Border>
+                                            <TextBlock Text="按排版自动识别" FontSize="10.5" Margin="9,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button Style="{StaticResource GhostButton}"
+                                                    Command="{Binding Current.CopyTitleCommand}"
+                                                    AutomationProperties.Name="复制标题"
+                                                    Padding="10,6" Margin="0,0,8,0"
+                                                    ToolTip="复制标题（含副标题）">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path Data="{StaticResource IconText}" Style="{StaticResource IconStrokeSmall}"
+                                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    <TextBlock Text="复制标题" Margin="6,0,0,0" FontSize="11.5"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource GhostButton}"
+                                                    Command="{Binding Current.CopyBodyCommand}"
+                                                    AutomationProperties.Name="复制正文"
+                                                    Padding="10,6" Margin="0,0,8,0"
+                                                    ToolTip="复制全部正文段落（不含标题与署名）">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path Data="{StaticResource IconText}" Style="{StaticResource IconStrokeSmall}"
+                                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    <TextBlock Text="复制正文" Margin="6,0,0,0" FontSize="11.5"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource PrimaryButton}"
+                                                    Command="{Binding Current.CopyAllCommand}"
+                                                    AutomationProperties.Name="复制全文"
+                                                    Padding="12,6"
+                                                    ToolTip="复制标题 + 正文 + 署名">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path Data="{StaticResource IconCopy}" Style="{StaticResource IconStrokeSmall}"
+                                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    <TextBlock Text="复制全文" Margin="6,0,0,0" FontSize="11.5"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <ItemsControl ItemsSource="{Binding Current.TitleLines}" Margin="0,12,0,0"
+                                                  Visibility="{Binding Current.HasTitle, Converter={StaticResource BoolToVisibility}}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding}"
+                                                           FontFamily="{StaticResource DisplayFont}"
+                                                           FontSize="21"
+                                                           FontWeight="SemiBold"
+                                                           LineHeight="32"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,0,0,2"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock Text="（未识别到标题）"
+                                               FontSize="16" Margin="0,12,0,0"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               Visibility="{Binding Current.HasTitle, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                                    <TextBlock Text="{Binding Current.Subtitle}"
+                                               FontSize="13"
+                                               TextWrapping="Wrap"
+                                               Margin="0,6,0,0"
+                                               LineHeight="21"
+                                               Foreground="{StaticResource AccentBrush}"
+                                               Visibility="{Binding Current.HasSubtitle, Converter={StaticResource BoolToVisibility}}" />
+
+                                    <!-- 署名 -->
+                                    <StackPanel Margin="0,14,0,0"
+                                                Visibility="{Binding Current.HasAuthors, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="署名 / 写稿人" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,7" />
+                                        <ItemsControl ItemsSource="{Binding Current.Authors}"
+                                                      ItemTemplate="{StaticResource AuthorTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <!-- 图片提示 -->
+                                    <StackPanel Margin="0,10,0,0"
+                                                Visibility="{Binding Current.HasCaptions, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="图片位置提示" Style="{StaticResource TextSectionTitle}" Margin="0,0,0,6" />
+                                        <ItemsControl ItemsSource="{Binding Current.Captions}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Style="{StaticResource Chip}"
+                                                            Background="{StaticResource SurfaceRaisedBrush}"
+                                                            BorderBrush="{StaticResource BorderBrush}"
+                                                            Margin="0,0,7,7">
+                                                        <TextBlock Text="{Binding}" FontSize="11"
+                                                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <!-- 解析提示 -->
+                                    <Border Margin="0,12,0,0" Padding="11,9" CornerRadius="9"
+                                            Background="#14F5A524" BorderBrush="#33F5A524" BorderThickness="1"
+                                            Visibility="{Binding Current.HasWarnings, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource IconAlert}" Style="{StaticResource IconStrokeSmall}"
+                                                  Stroke="{StaticResource WarningBrush}" VerticalAlignment="Top" Margin="0,2,0,0" />
+                                            <TextBlock Text="{Binding Current.WarningsText}"
+                                                       FontSize="11"
+                                                       Margin="9,0,0,0"
+                                                       LineHeight="17"
+                                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <!-- 段落列表 -->
+                    <Grid Grid.Row="1" Margin="0,12,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0" Margin="2,0,2,8"
+                              Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="正文段落" Style="{StaticResource TextSectionTitle}"
+                                           Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" />
+                                <Border Style="{StaticResource Chip}" Margin="9,0,0,0" Padding="7,1">
+                                    <TextBlock FontSize="10" Foreground="{StaticResource AccentBrush}">
+                                        <Run Text="{Binding Current.Paragraphs.Count, Mode=OneWay}" />
+                                        <Run Text=" 段" />
+                                    </TextBlock>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock HorizontalAlignment="Right" Text="每段右侧可单独复制"
+                                       FontSize="10.5"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                        </Grid>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0"
+                                      Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl ItemsSource="{Binding Current.Paragraphs}"
+                                          ItemTemplate="{StaticResource ParagraphTemplate}"
+                                          Margin="0,0,0,6" />
+                        </ScrollViewer>
+
+                        <!-- 欢迎引导 -->
+                        <Border Grid.Row="0" Grid.RowSpan="2"
+                                Style="{StaticResource PanelCard}"
+                                Visibility="{Binding HasNoDocument, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420">
+                                    <Border Width="64" Height="64" CornerRadius="20"
+                                            Background="{StaticResource AccentSoftBrush}"
+                                            BorderBrush="#3D2DD4BF" BorderThickness="1"
+                                            HorizontalAlignment="Center">
+                                        <Path Data="{StaticResource IconSpark}"
+                                              Style="{StaticResource IconStroke}"
+                                              Width="28" Height="28"
+                                              Stroke="{StaticResource AccentBrush}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="把文档拖进来，剩下的交给我"
+                                               FontFamily="{StaticResource DisplayFont}"
+                                               FontSize="20" FontWeight="SemiBold"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,20,0,0"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text="文档不会离开这台电脑。解析、拆分、导出全部在本机完成。"
+                                               FontSize="12.5"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap"
+                                               Margin="0,9,0,0"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+
+                                    <StackPanel Margin="0,26,0,0">
+                                        <Border Style="{StaticResource InnerCard}" Padding="14,11" Margin="0,0,0,8">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="24" Height="24" CornerRadius="7" Background="{StaticResource SurfaceRaisedBrush}">
+                                                    <TextBlock Text="1" FontSize="11" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{StaticResource AccentBrush}" />
+                                                </Border>
+                                                <TextBlock Text="拖入 .docx 或 .doc，也可以点击左侧选择文件"
+                                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                                           FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource InnerCard}" Padding="14,11" Margin="0,0,0,8">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="24" Height="24" CornerRadius="7" Background="{StaticResource SurfaceRaisedBrush}">
+                                                    <TextBlock Text="2" FontSize="11" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{StaticResource AccentBrush}" />
+                                                </Border>
+                                                <TextBlock Text="自动按排版拆出标题、正文段落与文末署名"
+                                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                                           FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource InnerCard}" Padding="14,11">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="24" Height="24" CornerRadius="7" Background="{StaticResource SurfaceRaisedBrush}">
+                                                    <TextBlock Text="3" FontSize="11" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{StaticResource AccentBrush}" />
+                                                </Border>
+                                                <TextBlock Text="勾选图片一键下载，命名形如 20261117_1.jpg"
+                                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                                           FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- 区段：右栏 -->
+                <Border Grid.Column="2" Style="{StaticResource PanelCard}" Padding="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0" Margin="16,14,16,10">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="图片" Style="{StaticResource TextSectionTitle}"
+                                           Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" />
+                                <Border Style="{StaticResource Chip}" Margin="9,0,0,0" Padding="7,1">
+                                    <TextBlock FontSize="10" Foreground="{StaticResource AccentBrush}">
+                                        <Run Text="{Binding Current.Images.Count, Mode=OneWay, FallbackValue=0}" />
+                                        <Run Text=" 张" />
+                                    </TextBlock>
+                                </Border>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                        Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}">
+                                <CheckBox Style="{StaticResource LabelCheckBox}"
+                                          IsChecked="{Binding Current.IsAllSelected, Mode=TwoWay}"
+                                          AutomationProperties.Name="全选图片"
+                                          ToolTip="全选 / 全不选" />
+                                <TextBlock Text="全选" FontSize="11" Margin="7,0,12,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextSecondaryBrush}" />
+                                <Button Style="{StaticResource SubtleButton}"
+                                        Command="{Binding Current.InvertSelectionCommand}"
+                                        AutomationProperties.Name="反选图片"
+                                        Padding="4,2"
+                                        ToolTip="反选">
+                                    <TextBlock Text="反选" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,0,7,0">
+                            <ItemsControl ItemsSource="{Binding Current.Images}"
+                                          ItemTemplate="{StaticResource ImageTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                    Visibility="{Binding Current.HasImages, Converter={StaticResource InverseBoolToVisibility}}">
+                            <Path Data="{StaticResource IconImage}"
+                                  Style="{StaticResource IconStroke}"
+                                  Width="30" Height="30"
+                                  Stroke="{StaticResource BorderStrongBrush}"
+                                  HorizontalAlignment="Center" />
+                            <TextBlock Text="这份文档没有可导出的图片"
+                                       FontSize="11.5" Margin="0,10,0,0"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
+
+                        <!-- 导出区 -->
+                        <Border Grid.Row="2"
+                                Background="{StaticResource SurfaceRaisedBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                CornerRadius="0,0,16,16"
+                                Padding="16,14">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,7">
+                                    <TextBlock Text="保存到" Style="{StaticResource TextLabel}" VerticalAlignment="Center" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Style="{StaticResource SubtleButton}"
+                                                Command="{Binding ResetFolderCommand}"
+                                                AutomationProperties.Name="恢复默认保存位置"
+                                                Padding="4,1" Margin="0,0,4,0"
+                                                ToolTip="恢复为桌面 / 文档同名文件夹">
+                                            <TextBlock Text="默认" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" />
+                                        </Button>
+                                        <Button Style="{StaticResource SubtleButton}"
+                                                Command="{Binding BrowseFolderCommand}"
+                                                AutomationProperties.Name="更改保存位置"
+                                                Padding="4,1"
+                                                ToolTip="选择其他位置">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Data="{StaticResource IconFolder}" Style="{StaticResource IconStrokeSmall}"
+                                                      Stroke="{StaticResource TextMutedBrush}" />
+                                                <TextBlock Text="更改" FontSize="10.5" Margin="5,0,0,0"
+                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBox Style="{StaticResource PathBox}"
+                                         Text="{Binding TargetFolderHint, Mode=OneWay}"
+                                         ToolTip="{Binding TargetFolderHint}"
+                                         Margin="0,0,0,10" />
+
+                                <Button Style="{StaticResource ActionButton}"
+                                        Command="{Binding ExportCommand}"
+                                        AutomationProperties.Name="一键下载选中图片">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IconDownload}" Style="{StaticResource IconStroke}"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        <TextBlock Text="一键下载选中图片" Margin="9,0,0,0"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        <Border Background="#33000000" CornerRadius="6" Padding="6,1" Margin="9,0,0,0">
+                                            <TextBlock FontSize="10.5" FontWeight="SemiBold"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}">
+                                                <Run Text="{Binding SelectedImageCount, Mode=OneWay}" />
+                                                <Run Text=" 张" />
+                                            </TextBlock>
+                                        </Border>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Style="{StaticResource GhostButton}"
+                                        Command="{Binding OpenFolderCommand}"
+                                        AutomationProperties.Name="打开导出文件夹"
+                                        Margin="0,8,0,0"
+                                        Padding="12,8"
+                                        Visibility="{Binding HasExportResult, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IconArrowUpRight}" Style="{StaticResource IconStrokeSmall}"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        <TextBlock Text="打开导出文件夹" Margin="7,0,0,0" FontSize="11.5"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </StackPanel>
+                                </Button>
+
+                                <TextBlock Text="命名规则：日期_序号.jpg（同一天重复导出会覆盖同名文件）"
+                                           FontSize="10"
+                                           TextWrapping="Wrap"
+                                           Margin="0,9,0,0"
+                                           LineHeight="15"
+                                           Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- ================= 状态栏 ================= -->
+            <Grid Grid.Row="2" Margin="18,0,18,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="6" Height="6" Fill="{StaticResource AccentBrush}" Opacity="0.8" />
+                    <TextBlock Text="{Binding Current.FileMetaText, FallbackValue=就绪 · 等待文档}"
+                               FontSize="10.5" Margin="8,0,0,0"
+                               Foreground="{StaticResource TextMutedBrush}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="Ctrl+O 打开" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" />
+                    <TextBlock Text="·" FontSize="10.5" Margin="7,0" Foreground="{StaticResource BorderStrongBrush}" />
+                    <TextBlock Text="Ctrl+Shift+C 复制全文" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" />
+                    <TextBlock Text="·" FontSize="10.5" Margin="7,0" Foreground="{StaticResource BorderStrongBrush}" />
+                    <TextBlock Text="Ctrl+E 导出图片" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" />
+                    <Path Data="{StaticResource IconShield}" Style="{StaticResource IconStrokeSmall}"
+                          Stroke="{StaticResource AccentBrush}" Opacity="0.75" Margin="14,0,0,0" />
+                    <TextBlock Text="本地处理" FontSize="10.5" Margin="6,0,0,0"
+                               Foreground="{StaticResource TextMutedBrush}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- ================= Toast ================= -->
+            <Border Grid.Row="1" Grid.RowSpan="2"
+                    Style="{StaticResource ToastStyle}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,0,46"
+                    Background="{StaticResource SurfaceRaisedBrush}"
+                    BorderBrush="{StaticResource BorderStrongBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="14,10"
+                    IsHitTestVisible="False">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="26" ShadowDepth="8" Direction="270" Opacity="0.55" Color="#FF000000" />
+                </Border.Effect>
+                <StackPanel Orientation="Horizontal">
+                    <Border Width="4" CornerRadius="2"
+                            Background="{Binding ToastKind, Converter={StaticResource ToastKindToBrush}}"
+                            Margin="0,0,11,0" />
+                    <Path x:Name="ToastIconPath"
+                          Data="{StaticResource IconCheck}"
+                          Style="{StaticResource IconStrokeSmall}"
+                          Stroke="{Binding ToastKind, Converter={StaticResource ToastKindToBrush}}"
+                          Width="16" Height="16" />
+                    <TextBlock Text="{Binding ToastText}"
+                               FontSize="12"
+                               Margin="9,0,4,0"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- ================= 忙碌遮罩 ================= -->
+            <Grid Grid.Row="1" Grid.RowSpan="2"
+                  Background="#A6080D12"
+                  Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}">
+                <Border Background="{StaticResource SurfaceRaisedBrush}"
+                        BorderBrush="{StaticResource BorderStrongBrush}"
+                        BorderThickness="1"
+                        CornerRadius="16"
+                        Padding="26,22"
+                        Width="360"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="32" ShadowDepth="10" Direction="270" Opacity="0.6" Color="#FF000000" />
+                    </Border.Effect>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource IconRefresh}"
+                                  Style="{StaticResource IconStroke}"
+                                  Stroke="{StaticResource AccentBrush}"
+                                  RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform>
+                                    <RotateTransform />
+                                </Path.RenderTransform>
+                                <Path.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                 From="0" To="360" Duration="0:0:1.6" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Path.Triggers>
+                            </Path>
+                            <TextBlock Text="{Binding BusyText}"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Margin="10,0,0,0"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                        </StackPanel>
+                        <ProgressBar Style="{StaticResource SlimProgressBar}"
+                                     Minimum="0" Maximum="100"
+                                     Value="{Binding ProgressPercent, Mode=OneWay}"
+                                     Margin="0,16,0,0" />
+                        <TextBlock Text="解析在后台线程进行，界面不会卡住"
+                                   FontSize="10.5" Margin="0,10,0,0"
+                                   Foreground="{StaticResource TextMutedBrush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
