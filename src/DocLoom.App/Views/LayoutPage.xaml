@@ -212,7 +212,7 @@
                                 <Button Style="{StaticResource GhostButton}" Padding="12,6"
                                         Command="{Binding OpenResultCommand}" Content="打开作品" />
                                 <Button Style="{StaticResource SubtleButton}" Padding="10,6" Margin="8,0,0,0"
-                                        Command="{Binding CopyResultCommand}" Content="复制链接" />
+                                        Command="{Binding OpenMyDocumentsCommand}" Content="打开我的图文" />
                             </StackPanel>
                         </StackPanel>
                     </Border>

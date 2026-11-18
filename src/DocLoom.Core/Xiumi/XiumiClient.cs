@@ -45,7 +45,8 @@ public sealed class XiumiCreateResult
 public sealed class XiumiClient : IDisposable
 {
     private const string BaseUrl = "https://xiumi.us";
-    private const string StudioUrl = "https://xiumi.us/studio/v5#/paper";
+    /// <summary>「我的图文」列表页。</summary>
+    public const string StudioUrl = "https://xiumi.us/#/studio/papers";
 
     private static readonly HashSet<int> OkCodes = new() { 0, 1, 2, 3 };
 
@@ -176,8 +177,7 @@ public sealed class XiumiClient : IDisposable
             throw new XiumiException("创建作品失败：服务端没有返回 show_id", payload: json);
         }
 
-        var editUrl = result["edit_url"]?.GetValue<string>()
-                      ?? $"https://xiumi.us/studio/v5#/paper/for/{showId}";
+        var editUrl = NormalizeEditUrl(result["edit_url"]?.GetValue<string>(), showId);
 
         return new XiumiCreateResult
         {
@@ -185,6 +185,41 @@ public sealed class XiumiClient : IDisposable
             EditUrl = editUrl,
             ListUrl = StudioUrl,
         };
+    }
+
+    /// <summary>
+    /// 服务端的 edit_url 可能是相对路径（甚至只有 hash），直接展示会缺域名。
+    /// 这里统一补成可点开的完整地址。
+    /// </summary>
+    private static string NormalizeEditUrl(string? raw, long showId)
+    {
+        var fallback = $"https://xiumi.us/studio/v5#/paper/for/{showId}";
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return fallback;
+        }
+
+        var url = raw.Trim();
+        if (url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || url.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+        {
+            return url;
+        }
+
+        if (url.StartsWith("//", StringComparison.Ordinal))
+        {
+            return "https:" + url;
+        }
+
+        if (url.StartsWith("/", StringComparison.Ordinal))
+        {
+            return "https://xiumi.us" + url;
+        }
+
+        // 只剩 hash 或裸路径的情况
+        return url.StartsWith("#", StringComparison.Ordinal)
+            ? "https://xiumi.us/studio/v5" + url
+            : "https://xiumi.us/" + url;
     }
 
     private async Task<string> SendAsync(HttpMethod method, string path, JsonNode? body, CancellationToken cancellationToken)

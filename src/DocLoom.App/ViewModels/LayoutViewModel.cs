@@ -46,7 +46,6 @@ public sealed class LayoutViewModel : ObservableObject
         PickTemplateCommand = new AsyncRelayCommand(PickTemplateAsync);
         PublishCommand = new AsyncRelayCommand(PublishAsync, CanPublish);
         OpenResultCommand = new RelayCommand(OpenResult, () => HasResult);
-        CopyResultCommand = new AsyncRelayCommand(CopyResultAsync, () => HasResult);
         OpenMyDocumentsCommand = new RelayCommand(OpenMyDocuments, () => IsLoggedIn);
         UseBuiltInTemplateCommand = new RelayCommand(UseBuiltInTemplate);
 
@@ -230,8 +229,6 @@ public sealed class LayoutViewModel : ObservableObject
 
     public RelayCommand OpenResultCommand { get; }
 
-    public AsyncRelayCommand CopyResultCommand { get; }
-
     public RelayCommand OpenMyDocumentsCommand { get; }
 
     public void SelectDocument(DocumentItemViewModel? document) => SelectedDocument = document;
@@ -302,7 +299,6 @@ public sealed class LayoutViewModel : ObservableObject
         PublishCommand.RaiseCanExecuteChanged();
         LogoutCommand.RaiseCanExecuteChanged();
         OpenResultCommand.RaiseCanExecuteChanged();
-        CopyResultCommand.RaiseCanExecuteChanged();
         OpenMyDocumentsCommand.RaiseCanExecuteChanged();
     }
 
@@ -484,26 +480,13 @@ public sealed class LayoutViewModel : ObservableObject
         }
     }
 
-    private async Task CopyResultAsync()
-    {
-        if (ResultUrl is null)
-        {
-            await Task.CompletedTask;
-            return;
-        }
-
-        var ok = ClipboardService.TrySetText(ResultUrl);
-        _main.ShowToast(ok ? "链接已复制" : "剪贴板被占用", ok ? ToastKind.Success : ToastKind.Warning);
-        await Task.CompletedTask;
-    }
-
     private void OpenMyDocuments()
     {
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "https://xiumi.us/studio/v5#/paper",
+                FileName = XiumiClient.StudioUrl,
                 UseShellExecute = true,
             });
         }
