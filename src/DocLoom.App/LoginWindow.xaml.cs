@@ -73,7 +73,23 @@ public partial class LoginWindow : Window
         catch (Exception ex)
         {
             LoadingLayer.Visibility = Visibility.Visible;
-            SetStatus($"无法启动内置浏览器：{ex.Message}", isError: true);
+
+            // 最常见的一类失败：目标机器没装 WebView2 运行时（Win10 老版本、精简系统、卸载过 Edge）。
+            var missingRuntime = ex.Message.Contains("WebView2", StringComparison.OrdinalIgnoreCase)
+                                 || ex.Message.Contains("runtime", StringComparison.OrdinalIgnoreCase)
+                                 || ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                                 || ex.Message.Contains("0x80070002", StringComparison.OrdinalIgnoreCase);
+
+            if (missingRuntime)
+            {
+                SetStatus("未检测到 WebView2 运行时：点右下角按钮下载安装，装完重开软件即可", isError: true);
+                InstallRuntimeButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                SetStatus($"无法启动内置浏览器：{ex.Message}", isError: true);
+            }
+
             RetryButton.Visibility = Visibility.Visible;
         }
     }
@@ -142,6 +158,24 @@ public partial class LoginWindow : Window
     {
         StatusText.Text = text;
         StatusDot.Fill = (Brush)FindResource(isError ? "DangerBrush" : ok ? "SuccessBrush" : "WarningBrush");
+    }
+
+    private const string RuntimeDownloadUrl = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
+
+    private void InstallRuntime_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = RuntimeDownloadUrl,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            SetStatus("无法打开浏览器，请手动访问 " + RuntimeDownloadUrl, isError: true);
+        }
     }
 
     private void Retry_Click(object sender, RoutedEventArgs e)

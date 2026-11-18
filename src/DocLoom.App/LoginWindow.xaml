@@ -82,6 +82,10 @@
                                FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button x:Name="InstallRuntimeButton" Content="下载 WebView2 运行时"
+                            Style="{StaticResource GhostButton}"
+                            Padding="12,6" Margin="0,0,8,0"
+                            Click="InstallRuntime_Click" Visibility="Collapsed" />
                     <Button x:Name="RetryButton" Content="重新加载页面" Style="{StaticResource GhostButton}"
                             Padding="12,6" Click="Retry_Click" Visibility="Collapsed" />
                     <Button x:Name="DoneButton" Content="我已登录" Style="{StaticResource PrimaryButton}"
