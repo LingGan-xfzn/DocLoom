@@ -16,7 +16,7 @@ public sealed class XiumiLayoutProgress
 public sealed class XiumiLayoutResult
 {
     public required XiumiCreateResult Created { get; init; }
-    public required XiumiFillResult Fill { get; init; }
+    public required XiumiComposeResult Fill { get; init; }
     public required RehostReport Rehost { get; init; }
     public int UploadedDocumentImages { get; init; }
     public int FailedDocumentImages { get; init; }
@@ -45,6 +45,7 @@ public static class XiumiLayoutService
         // 1. 文档图片先上传到当前账号，拿到新地址。
         var uris = new List<string>(document.Images.Count);
         var failed = 0;
+        var failedIndexes = new HashSet<int>();
 
         for (var i = 0; i < document.Images.Count; i++)
         {
@@ -66,6 +67,7 @@ public static class XiumiLayoutService
             catch (Exception ex) when (ex is XiumiException or HttpRequestException or TaskCanceledException)
             {
                 failed++;
+                failedIndexes.Add(i);
                 notes.Add($"{image.FileName} 上传失败：{ex.Message}");
             }
         }
@@ -77,14 +79,37 @@ public static class XiumiLayoutService
             Total = document.Images.Count,
         });
 
-        // 2. 把正文、图片、署名灌进模板。
-        var filled = XiumiFiller.Fill(
-            templateData,
-            document.Paragraphs.Select(p => p.Text).ToList(),
-            uris,
-            title,
-            document.Authors);
+        // 2. 按文档自身的排布重建组件序列（模板只提供样式原型）。
+        var uriByIndex = new Dictionary<int, string>();
+        var uploadedCursor = 0;
+        foreach (var image in document.Images)
+        {
+            if (uploadedCursor < uris.Count)
+            {
+                uriByIndex[image.Index] = uris[uploadedCursor];
+            }
 
+            uploadedCursor++;
+        }
+
+        // 个别图片上传失败时，索引会错位；按成功列表重建映射。
+        uriByIndex.Clear();
+        uploadedCursor = 0;
+        for (var i = 0; i < document.Images.Count; i++)
+        {
+            if (i < failedIndexes.Count && failedIndexes.Contains(i))
+            {
+                continue;
+            }
+
+            if (uploadedCursor < uris.Count)
+            {
+                uriByIndex[document.Images[i].Index] = uris[uploadedCursor];
+                uploadedCursor++;
+            }
+        }
+
+        var filled = XiumiComposer.Compose(templateData, document, uriByIndex, title);
         notes.AddRange(filled.Notes);
 
         // 3. 模板自带的账号图需要过户（跳过刚上传的与公共素材）。

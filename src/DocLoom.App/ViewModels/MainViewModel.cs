@@ -92,6 +92,11 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(IsDocumentPage));
                 OnPropertyChanged(nameof(IsLayoutPage));
+
+                if (value == 1)
+                {
+                    Layout.AutoSelectDefault();
+                }
             }
         }
     }

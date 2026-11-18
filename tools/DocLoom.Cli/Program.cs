@@ -37,6 +37,8 @@ internal static class Program
         string? xiumiKey = null;
         string? lzText = null;
         string? fillKey = null;
+        string? composeKey = null;
+        var useBuiltIn = false;
         string? roundTripPath = null;
 
         for (var i = 0; i < args.Length; i++)
@@ -64,10 +66,21 @@ internal static class Program
                 case "--xiumi-fill" when i + 1 < args.Length:
                     fillKey = args[++i];
                     break;
+                case "--xiumi-compose" when i + 1 < args.Length:
+                    composeKey = args[++i];
+                    break;
+                case "--builtin-template":
+                    useBuiltIn = true;
+                    break;
                 default:
                     inputs.Add(args[i]);
                     break;
             }
+        }
+
+        if (composeKey is not null || useBuiltIn)
+        {
+            return RunXiumiCompose(composeKey, useBuiltIn, inputs.FirstOrDefault(), outDirectory);
         }
 
         if (fillKey is not null)
@@ -369,6 +382,145 @@ internal static class Program
             Console.Error.WriteLine($"填充失败：{ex.Message}");
             return 2;
         }
+    }
+
+    private static int RunXiumiCompose(string? keyPath, bool useBuiltIn, string? documentPath, string? outputDirectory)
+    {
+        try
+        {
+            if (documentPath is null || !File.Exists(documentPath))
+            {
+                Console.Error.WriteLine("需要一份 .docx 或 .doc 作为排布来源");
+                return 2;
+            }
+
+            var envelope = useBuiltIn || keyPath is null
+                ? BuiltInTemplate.Load()
+                : XiumiKeyCodec.Unpack(File.ReadAllText(keyPath));
+
+            if (envelope.Data is not JsonObject templateData)
+            {
+                Console.Error.WriteLine("模板密钥里没有作品数据");
+                return 2;
+            }
+
+            var document = DocumentParser.Parse(documentPath);
+            var result = XiumiComposer.Compose(templateData, document, new Dictionary<int, string>(), document.Title);
+
+            // 文档侧序列
+            var docFlow = document.BodyFlow.Select(e => e.Kind == BodyFlowKind.Paragraph
+                ? $"PARA[{e.Paragraph!.Index}]"
+                : $"IMG×{e.Images.Count}").ToList();
+
+            // 合成后的组件序列
+            var column = FindColumn(result.Data);
+            var composed = new List<string>();
+            if (column is not null)
+            {
+                foreach (var node in column)
+                {
+                    if (node?["txt1"]?["text"]?.GetValue<string>() is { Length: > 0 })
+                    {
+                        var plain = XiumiSlotAnalyzer.StripHtml(node["txt1"]["text"]!.GetValue<string>());
+                        var tag = plain.StartsWith("供稿", StringComparison.Ordinal) ? "SIGN" : "TEXT";
+                        composed.Add(tag);
+                    }
+                    else if (node?["img1"]?["src"]?.GetValue<string>() is { Length: > 0 })
+                    {
+                        composed.Add("IMG");
+                    }
+                    else
+                    {
+                        composed.Add(node?["_comp"]?["tplId"]?.GetValue<string>()?.Split('/').Last() ?? "?");
+                    }
+                }
+            }
+
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                document = Path.GetFileName(documentPath),
+                template = useBuiltIn ? "builtin" : Path.GetFileName(keyPath),
+                paragraphs = document.Paragraphs.Count,
+                images = document.Images.Count,
+                docFlow,
+                composed,
+                textBlocks = result.TextBlocks,
+                imageBlocks = result.ImageBlocks,
+                signature = result.SignatureIncluded,
+                trailing = result.TrailingImageIncluded,
+                cover = result.CoverUri,
+                notes = result.Notes,
+            }, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            }));
+
+            if (outputDirectory is not null)
+            {
+                Directory.CreateDirectory(outputDirectory);
+                var keyOut = XiumiKeyCodec.Pack(result.Data, envelope.Type, document.Title);
+                var target = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(documentPath) + ".composed.xiumi-key");
+                File.WriteAllText(target, keyOut);
+                Console.WriteLine($"composed key -> {target} ({keyOut.Length} chars)");
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"重建失败：{ex.Message}");
+            return 2;
+        }
+    }
+
+    private static JsonArray? FindColumn(JsonObject data)
+    {
+        JsonArray? best = null;
+        var bestScore = -1;
+
+        void Walk(JsonNode? node, int depth)
+        {
+            if (depth > 12 || node is null)
+            {
+                return;
+            }
+
+            if (node is JsonObject obj)
+            {
+                foreach (var pair in obj)
+                {
+                    if (pair.Key is "col1" or "col2" or "col3"
+                        && pair.Value is JsonObject column
+                        && column["items"] is JsonArray list)
+                    {
+                        var score = list.Count(i => i?["txt1"]?["text"]?.GetValue<string>() is { Length: > 0 });
+                        if (score > bestScore)
+                        {
+                            bestScore = score;
+                            best = list;
+                        }
+                    }
+
+                    if (pair.Key is "_comp" or "style" or "_$raHTML")
+                    {
+                        continue;
+                    }
+
+                    Walk(pair.Value, depth + 1);
+                }
+            }
+            else if (node is JsonArray array)
+            {
+                foreach (var item in array)
+                {
+                    Walk(item, depth + 1);
+                }
+            }
+        }
+
+        Walk(data, 0);
+        return best;
     }
 
     private static void PrintHelp()

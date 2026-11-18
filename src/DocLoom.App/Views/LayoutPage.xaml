@@ -87,7 +87,16 @@
             <Border Style="{StaticResource PanelCard}" Padding="18,16" Margin="0,12,0,0">
                 <Grid>
                     <StackPanel>
-                        <TextBlock Text="排版模板" Style="{StaticResource TextLabel}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="排版模板" Style="{StaticResource TextLabel}" />
+                            <Border Style="{StaticResource Chip}"
+                                    Background="{StaticResource AccentSoftBrush}"
+                                    BorderBrush="#4D2DD4BF" Padding="6,1" Margin="8,0,0,0"
+                                    Visibility="{Binding IsBuiltInTemplate, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="内置" FontSize="10"
+                                           Foreground="{StaticResource AccentBrush}" />
+                            </Border>
+                        </StackPanel>
                         <TextBlock Text="{Binding TemplateTitle}" Margin="0,6,0,0"
                                    FontSize="15" FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis"
@@ -97,13 +106,19 @@
                                    Foreground="{StaticResource TextSecondaryBrush}" />
                         <TextBlock Text="{Binding TemplatePathText}" Margin="0,3,0,0"
                                    FontSize="10.5" TextTrimming="CharacterEllipsis"
-                                   Foreground="{StaticResource TextMutedBrush}" />
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Visibility="{Binding IsCustomTemplate, Converter={StaticResource BoolToVisibility}}" />
                     </StackPanel>
 
-                    <Button Style="{StaticResource GhostButton}" Padding="14,8"
-                            HorizontalAlignment="Right" VerticalAlignment="Center"
-                            Command="{Binding PickTemplateCommand}"
-                            Content="选择 .xiumi-key" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button Style="{StaticResource SubtleButton}" Padding="10,7" Margin="0,0,8,0"
+                                Command="{Binding UseBuiltInTemplateCommand}"
+                                Content="用内置模板"
+                                Visibility="{Binding IsCustomTemplate, Converter={StaticResource BoolToVisibility}}" />
+                        <Button Style="{StaticResource GhostButton}" Padding="14,8"
+                                Command="{Binding PickTemplateCommand}"
+                                Content="选择 .xiumi-key" />
+                    </StackPanel>
                 </Grid>
             </Border>
 
@@ -114,6 +129,10 @@
                     <TextBlock Text="{Binding SelectedDocumentSummary}" Margin="0,6,0,0"
                                FontSize="11.5"
                                Foreground="{StaticResource TextMutedBrush}" />
+                    <TextBlock Text="{Binding PlanSummary}" Margin="0,4,0,0"
+                               FontSize="11.5" FontWeight="SemiBold"
+                               Foreground="{StaticResource AccentBrush}"
+                               Visibility="{Binding HasSelectedDocument, Converter={StaticResource BoolToVisibility}}" />
 
                     <ListBox Style="{StaticResource LayoutDocList}"
                              ItemsSource="{Binding Documents}"
@@ -215,7 +234,7 @@
             <!-- 说明 -->
             <TextBlock Margin="4,16,4,0" FontSize="10.5" LineHeight="17" TextWrapping="Wrap"
                        Foreground="{StaticResource TextMutedBrush}"
-                       Text="模板要求：一套可填充的秀米模板（正文由若干文本组件 + 图片组件交替组成，末尾有供稿署名块）。排版时只替换文字与图片，字体、间距、边框等样式全部沿用模板；模板自带的账号图片会自动过户到你的账号下，因此首次排版会多花十几秒。登录态只在本次运行内保留。" />
+                       Text="排布说明：内容与顺序完全按选中的文档来——文档有几段就生成几个文本组件、有几张图就生成几个图片组件，段与段之间不会被合并。模板只提供样式基因（正文字体字号、行距、图片格式、边框装饰、署名块样式）。封面默认取文档第一张图片。模板自带的账号图会自动过户到你的账号，首次排版会多花十几秒；登录态只在本次运行内保留。" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

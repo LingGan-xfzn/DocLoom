@@ -33,6 +33,8 @@ public sealed class LayoutViewModel : ObservableObject
     private bool _hasResult;
     private string _notesText = string.Empty;
     private bool _hasNotes;
+    private bool _isBuiltInTemplate = true;
+    private string _planSummary = string.Empty;
 
     public LayoutViewModel(MainViewModel main, Func<Window?> ownerProvider)
     {
@@ -46,6 +48,32 @@ public sealed class LayoutViewModel : ObservableObject
         OpenResultCommand = new RelayCommand(OpenResult, () => HasResult);
         CopyResultCommand = new AsyncRelayCommand(CopyResultAsync, () => HasResult);
         OpenMyDocumentsCommand = new RelayCommand(OpenMyDocuments, () => IsLoggedIn);
+        UseBuiltInTemplateCommand = new RelayCommand(UseBuiltInTemplate);
+
+        // 开箱即用：启动就带一套内置模板，用户也可以换成自己的 .xiumi-key。
+        ApplyBuiltInTemplate();
+    }
+
+    public RelayCommand UseBuiltInTemplateCommand { get; }
+
+    public bool IsBuiltInTemplate
+    {
+        get => _isBuiltInTemplate;
+        private set
+        {
+            if (SetProperty(ref _isBuiltInTemplate, value))
+            {
+                OnPropertyChanged(nameof(IsCustomTemplate));
+            }
+        }
+    }
+
+    public bool IsCustomTemplate => !IsBuiltInTemplate;
+
+    public string PlanSummary
+    {
+        get => _planSummary;
+        private set => SetProperty(ref _planSummary, value);
     }
 
     public ObservableCollection<DocumentItemViewModel> Documents => _main.RecentDocuments;
@@ -111,6 +139,7 @@ public sealed class LayoutViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(HasSelectedDocument));
                 OnPropertyChanged(nameof(SelectedDocumentSummary));
+                UpdatePlanSummary();
                 RefreshCommands();
             }
         }
@@ -207,6 +236,65 @@ public sealed class LayoutViewModel : ObservableObject
 
     public void SelectDocument(DocumentItemViewModel? document) => SelectedDocument = document;
 
+    /// <summary>切到排版页时默认选中当前文档，省掉一次点击。</summary>
+    public void AutoSelectDefault()
+    {
+        if (SelectedDocument is not null)
+        {
+            return;
+        }
+
+        SelectedDocument = _main.Current ?? Documents.FirstOrDefault();
+    }
+
+    private void UpdatePlanSummary()
+    {
+        if (SelectedDocument is null)
+        {
+            PlanSummary = string.Empty;
+            return;
+        }
+
+        var paragraphs = SelectedDocument.Model.BodyFlow
+            .Where(e => e.Kind == DocLoom.Core.Model.BodyFlowKind.Paragraph)
+            .Count(e => e.Paragraph is not null && e.Paragraph.Text.Trim().Length > 0);
+        var images = SelectedDocument.Model.Images.Count;
+
+        PlanSummary = $"将按文档排成 {paragraphs} 段文字 + {images} 张图片（不是照模板示例的数量）";
+    }
+
+    private void ApplyBuiltInTemplate()
+    {
+        try
+        {
+            var envelope = BuiltInTemplate.Load();
+            if (envelope.Data is not JsonObject data)
+            {
+                return;
+            }
+
+            var map = XiumiTemplateMap.Build(data);
+            _templateData = data;
+            _templateMap = map;
+            IsBuiltInTemplate = true;
+            TemplatePath = null;
+            TemplateTitle = BuiltInTemplate.Title;
+            TemplateSummary = DescribeTemplate(map);
+            HasTemplate = true;
+        }
+        catch (Exception ex)
+        {
+            TemplateTitle = "内置模板不可用";
+            TemplateSummary = ex.Message;
+            HasTemplate = false;
+        }
+    }
+
+    private static string DescribeTemplate(XiumiTemplateMap map) =>
+        "样式原型：正文字体与缩进 + 配图格式 + 署名块；段数与图片数按文档来";
+
+    private void UseBuiltInTemplate() => ApplyBuiltInTemplate();
+
     private bool CanPublish() => IsLoggedIn && HasTemplate && SelectedDocument is not null && !IsBusy;
 
     private void RefreshCommands()
@@ -290,9 +378,10 @@ public sealed class LayoutViewModel : ObservableObject
             _templateData = data;
             _templateMap = map;
             TemplatePath = path;
+            IsBuiltInTemplate = false;
             TemplateTitle = envelope.Title ?? Path.GetFileNameWithoutExtension(path);
-            TemplateSummary = $"正文槽 {map.BodyTexts.Count} · 配图槽 {map.BodyImages.Count} · 装饰图 {map.DecorImages.Count}"
-                              + (map.Signature is null ? " · 未识别署名槽" : " · 已识别署名槽");
+            TemplateSummary = $"样式原型：正文槽 {map.BodyTexts.Count} · 配图槽 {map.BodyImages.Count} · 装饰图 {map.DecorImages.Count}"
+                              + (map.Signature is null ? " · 未识别署名块" : " · 已识别署名块");
             HasTemplate = true;
             StatusText = "模板已就绪";
             _main.ShowToast($"模板已载入：{TemplateTitle}", ToastKind.Success);

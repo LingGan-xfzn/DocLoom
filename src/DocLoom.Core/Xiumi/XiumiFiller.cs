@@ -19,9 +19,10 @@ public sealed class XiumiFillResult
 }
 
 /// <summary>
-/// 把文档内容灌进模板槽位。
-/// 只改文本与图片地址，组件样式、布局、装饰一概不动；
-/// 最后剥离 _$raHTML 渲染缓存，让秀米编辑器按新内容重新渲染。
+/// 旧策略：把文档内容灌进模板已有的槽位（模板有几段就排几段，多出来的合并）。
+///
+/// 已被 <see cref="XiumiComposer"/> 取代——那个按文档的正文流重建组件序列，
+/// 段数与图片数都与文档一致。这里保留仅用于对照调试（CLI 的 --xiumi-fill）。
 /// </summary>
 public static partial class XiumiFiller
 {
