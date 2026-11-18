@@ -155,11 +155,10 @@
                         </Border>
 
                         <StackPanel Grid.Column="1">
-                            <TextBlock Text="{Binding Text}"
-                                       Style="{StaticResource TextBase}"
-                                       LineHeight="24"
-                                       LineStackingStrategy="BlockLineHeight"
-                                       Foreground="#FFDCE9F0" />
+                            <TextBox Style="{StaticResource SelectableText}"
+                                 Text="{Binding Text, Mode=OneWay}"
+                                 Foreground="#FFDCE9F0"
+                                 AutomationProperties.Name="正文段落" />
                             <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
                                 <TextBlock Text="{Binding LengthText}" Style="{StaticResource TextMuted}" />
                                 <Border Style="{StaticResource Chip}"
@@ -235,11 +234,14 @@
                     <Path Data="{StaticResource IconUser}"
                           Style="{StaticResource IconStrokeSmall}"
                           Stroke="{StaticResource AccentBrush}" />
-                    <TextBlock Text="{Binding Display}"
-                               Margin="7,0,8,0"
-                               FontSize="12"
-                               VerticalAlignment="Center"
-                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBox Style="{StaticResource SelectableText}"
+                             Text="{Binding Display, Mode=OneWay}"
+                             Margin="7,0,8,0"
+                             FontSize="12"
+                             TextWrapping="NoWrap"
+                             VerticalAlignment="Center"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             AutomationProperties.Name="署名" />
                     <Button x:Name="CopyAuthor"
                             Style="{StaticResource IconButton}"
                             Width="24" Height="24"
@@ -403,6 +405,73 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
+
+        <!-- 正文中的图片组：虚线卡片标注位置与文件名 -->
+        <DataTemplate x:Key="ImageGroupTemplate" DataType="{x:Type vm:ImageGroupViewModel}">
+            <Grid Margin="0,0,0,10">
+                <Rectangle RadiusX="12" RadiusY="12"
+                           Stroke="{StaticResource BorderStrongBrush}"
+                           StrokeThickness="1.2"
+                           StrokeDashArray="4 3"
+                           Fill="#0A16232E" />
+                <StackPanel Margin="13,11">
+                    <Grid Margin="0,0,0,9">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource IconImage}" Style="{StaticResource IconStrokeSmall}"
+                                  Stroke="{StaticResource AccentBrush}" />
+                            <TextBlock Text="正文图片" FontSize="11" FontWeight="SemiBold"
+                                       Margin="7,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{StaticResource AccentBrush}" />
+                            <Border Style="{StaticResource Chip}"
+                                    Background="{StaticResource SurfaceRaisedBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    Padding="6,1" Margin="8,0,0,0">
+                                <TextBlock Text="{Binding CountText}" FontSize="10"
+                                           Foreground="{StaticResource TextMutedBrush}" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="{Binding PositionText}"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   FontSize="10.5"
+                                   Foreground="{StaticResource TextMutedBrush}" />
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding Images}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Width="104" Margin="0,0,10,4">
+                                    <Grid Height="66">
+                                        <Rectangle RadiusX="8" RadiusY="8">
+                                            <Rectangle.Fill>
+                                                <ImageBrush ImageSource="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                            </Rectangle.Fill>
+                                        </Rectangle>
+                                        <Border Background="#C40A0F14" CornerRadius="5" Padding="5,1"
+                                                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="4">
+                                            <TextBlock Text="{Binding SequenceText}" FontSize="9.5"
+                                                       FontFamily="{StaticResource MonoFont}"
+                                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                                        </Border>
+                                    </Grid>
+                                    <TextBlock Text="{Binding FileNamePreview}" FontSize="10.5" Margin="0,5,0,0"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <vm:BodyFlowTemplateSelector x:Key="BodyFlowSelector"
+                                     ParagraphTemplate="{StaticResource ParagraphTemplate}"
+                                     ImageGroupTemplate="{StaticResource ImageGroupTemplate}" />
 
         <!-- Toast -->
         <Style x:Key="ToastStyle" TargetType="Border">
@@ -791,14 +860,14 @@
                                                   Visibility="{Binding Current.HasTitle, Converter={StaticResource BoolToVisibility}}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding}"
-                                                           FontFamily="{StaticResource DisplayFont}"
-                                                           FontSize="21"
-                                                           FontWeight="SemiBold"
-                                                           LineHeight="32"
-                                                           TextWrapping="Wrap"
-                                                           Margin="0,0,0,2"
-                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                                <TextBox Style="{StaticResource SelectableText}"
+                                                         Text="{Binding Mode=OneWay}"
+                                                         FontFamily="{StaticResource DisplayFont}"
+                                                         FontSize="21"
+                                                         FontWeight="SemiBold"
+                                                         Margin="0,0,0,2"
+                                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                                         AutomationProperties.Name="文档标题" />
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
@@ -808,13 +877,13 @@
                                                Foreground="{StaticResource TextMutedBrush}"
                                                Visibility="{Binding Current.HasTitle, Converter={StaticResource InverseBoolToVisibility}}" />
 
-                                    <TextBlock Text="{Binding Current.Subtitle}"
-                                               FontSize="13"
-                                               TextWrapping="Wrap"
-                                               Margin="0,6,0,0"
-                                               LineHeight="21"
-                                               Foreground="{StaticResource AccentBrush}"
-                                               Visibility="{Binding Current.HasSubtitle, Converter={StaticResource BoolToVisibility}}" />
+                                    <TextBox Style="{StaticResource SelectableText}"
+                                             Text="{Binding Current.Subtitle, Mode=OneWay}"
+                                             FontSize="13"
+                                             Margin="0,6,0,0"
+                                             Foreground="{StaticResource AccentBrush}"
+                                             AutomationProperties.Name="副标题"
+                                             Visibility="{Binding Current.HasSubtitle, Converter={StaticResource BoolToVisibility}}" />
 
                                     <!-- 署名 -->
                                     <StackPanel Margin="0,14,0,0"
@@ -902,8 +971,8 @@
                                       svc:SmoothScroll.IsEnabled="True"
                                       Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}">
                             <ItemsControl x:Name="ParagraphList"
-                                          ItemsSource="{Binding Current.Paragraphs}"
-                                          ItemTemplate="{StaticResource ParagraphTemplate}"
+                                          ItemsSource="{Binding Current.BodyFlow}"
+                                          ItemTemplateSelector="{StaticResource BodyFlowSelector}"
                                           Margin="0,0,0,6" />
                         </ScrollViewer>
 

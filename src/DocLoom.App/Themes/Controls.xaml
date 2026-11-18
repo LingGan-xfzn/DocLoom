@@ -500,10 +500,37 @@
 
     <!-- ============ 文本选择 ============ -->
 
-    <Style x:Key="SelectableText" TargetType="TextBlock" BasedOn="{StaticResource TextBase}">
+    <!-- 可框选文本：只读 TextBox 伪装成文本，支持鼠标拖选 + Ctrl+C -->
+    <Style x:Key="SelectableText" TargetType="TextBox">
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="IsReadOnlyCaretVisible" Value="False" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="LineHeight" Value="24" />
-        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="MinLines" Value="1" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+        <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
+        <Setter Property="SelectionOpacity" Value="0.35" />
+        <Setter Property="CaretBrush" Value="Transparent" />
+        <Setter Property="Cursor" Value="IBeam" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <ScrollViewer x:Name="PART_ContentHost"
+                                  Focusable="False"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  Padding="0"
+                                  Margin="0" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
 </ResourceDictionary>
