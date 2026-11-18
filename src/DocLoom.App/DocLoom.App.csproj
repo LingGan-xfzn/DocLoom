@@ -11,7 +11,7 @@
     <RootNamespace>DocLoom.App</RootNamespace>
     <ApplicationIcon>Assets\docloom.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <Authors>DocLoom contributors</Authors>
     <Company>DocLoom</Company>
     <Product>DocLoom 文档织机</Product>
@@ -41,6 +41,10 @@
   <ItemGroup>
     <Resource Include="Assets\docloom.ico" />
     <Resource Include="Assets\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
   </ItemGroup>
 
 </Project>

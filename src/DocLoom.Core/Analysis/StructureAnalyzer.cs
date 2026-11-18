@@ -148,6 +148,7 @@ public static partial class StructureAnalyzer
 
             if (block.HasImage)
             {
+                var group = new List<ImageAsset>();
                 foreach (var rawImage in block.Images)
                 {
                     imageIndex++;
@@ -164,6 +165,16 @@ public static partial class StructureAnalyzer
                     };
                     document.Images.Add(asset);
                     pendingImages.Add(asset);
+                    group.Add(asset);
+                }
+
+                if (group.Count > 0)
+                {
+                    document.BodyFlow.Add(new BodyFlowEntry
+                    {
+                        Kind = BodyFlowKind.Images,
+                        Images = group,
+                    });
                 }
 
                 lastCaption = null;
@@ -198,13 +209,19 @@ public static partial class StructureAnalyzer
             }
 
             paragraphIndex++;
-            document.Paragraphs.Add(new ParagraphBlock
+            var paragraph = new ParagraphBlock
             {
                 Index = paragraphIndex,
                 SourceIndex = i,
                 Text = block.Text.Trim(),
                 ImageCount = block.Images.Count,
                 IsLead = paragraphIndex == 1 && block.Text.Length >= 40,
+            };
+            document.Paragraphs.Add(paragraph);
+            document.BodyFlow.Add(new BodyFlowEntry
+            {
+                Kind = BodyFlowKind.Paragraph,
+                Paragraph = paragraph,
             });
         }
 

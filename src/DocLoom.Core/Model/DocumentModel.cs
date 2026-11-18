@@ -90,6 +90,24 @@ public sealed class AuthorEntry
     public string IdentityKey => $"{Role}|{Department}|{Name}".Replace(" ", string.Empty);
 }
 
+/// <summary>正文流的条目类型。</summary>
+public enum BodyFlowKind
+{
+    Paragraph,
+    Images,
+}
+
+/// <summary>
+/// 正文流的一项：要么是一个自然段，要么是原文档里相邻的一组图片。
+/// 用它还原「第几段和第几段之间有哪些图」，界面据此在正文里标注图片位置。
+/// </summary>
+public sealed class BodyFlowEntry
+{
+    public required BodyFlowKind Kind { get; init; }
+    public ParagraphBlock? Paragraph { get; init; }
+    public IReadOnlyList<ImageAsset> Images { get; init; } = Array.Empty<ImageAsset>();
+}
+
 /// <summary>可直接导出的一张图片。</summary>
 public sealed class ImageAsset
 {
@@ -128,6 +146,9 @@ public sealed class ParsedDocument
     public List<string> TitleLines { get; } = new();
 
     public List<ParagraphBlock> Paragraphs { get; } = new();
+
+    /// <summary>正文流：段落与图片组按原文档顺序交错排列。</summary>
+    public List<BodyFlowEntry> BodyFlow { get; } = new();
     public List<AuthorEntry> Authors { get; } = new();
     public List<ImageAsset> Images { get; } = new();
 

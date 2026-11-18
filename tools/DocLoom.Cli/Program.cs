@@ -2,6 +2,8 @@ using System.Text;
 using System.Text.Json;
 using DocLoom.Core;
 using DocLoom.Core.Export;
+using DocLoom.Core.Xiumi;
+using System.Text.Json.Nodes;
 using DocLoom.Core.Model;
 
 namespace DocLoom.Cli;
@@ -32,6 +34,10 @@ internal static class Program
         var asJson = false;
         var export = false;
         string? outDirectory = null;
+        string? xiumiKey = null;
+        string? lzText = null;
+        string? fillKey = null;
+        string? roundTripPath = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -46,10 +52,41 @@ internal static class Program
                 case "--out" when i + 1 < args.Length:
                     outDirectory = args[++i];
                     break;
+                case "--xiumi-key" when i + 1 < args.Length:
+                    xiumiKey = args[++i];
+                    break;
+                case "--xiumi-roundtrip" when i + 1 < args.Length:
+                    roundTripPath = args[++i];
+                    break;
+                case "--lz" when i + 1 < args.Length:
+                    lzText = args[++i];
+                    break;
+                case "--xiumi-fill" when i + 1 < args.Length:
+                    fillKey = args[++i];
+                    break;
                 default:
                     inputs.Add(args[i]);
                     break;
             }
+        }
+
+        if (fillKey is not null)
+        {
+            return RunXiumiFill(fillKey, inputs.FirstOrDefault(), outDirectory);
+        }
+
+        if (lzText is not null)
+        {
+            var packed = LzString.CompressToBase64(lzText);
+            var unpacked = LzString.DecompressFromBase64(packed);
+            Console.WriteLine($"in={lzText.Length} out={packed.Length} recovered={unpacked?.Length} same={unpacked == lzText}");
+            Console.WriteLine(packed);
+            return unpacked == lzText ? 0 : 3;
+        }
+
+        if (xiumiKey is not null)
+        {
+            return RunXiumiKey(xiumiKey, roundTripPath);
         }
 
         var files = ExpandInputs(inputs);
@@ -218,6 +255,121 @@ internal static class Program
     private static string FormatSize(long bytes) => bytes >= 1024 * 1024
         ? $"{bytes / 1024d / 1024d:0.0} MB"
         : $"{Math.Max(1, bytes / 1024d):0} KB";
+
+    private static int RunXiumiKey(string path, string? roundTripPath)
+    {
+        try
+        {
+            var envelope = XiumiKeyCodec.Unpack(File.ReadAllText(path));
+            var data = envelope.Data as JsonObject;
+            var stats = data is null ? null : XiumiSlotAnalyzer.Analyze(data);
+
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                file = path,
+                kind = envelope.Kind,
+                type = envelope.Type,
+                title = envelope.Title,
+                compact = envelope.Compact,
+                hasData = data is not null,
+                slots = stats is null ? null : new
+                {
+                    texts = stats.TextSlots.Count,
+                    images = stats.ImageSlots.Count,
+                    textPreview = stats.TextSlots.Select(t => t.Preview),
+                    imageUris = stats.ImageSlots.Select(i => i.Source),
+                },
+            }, new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+
+            if (roundTripPath is not null && data is not null)
+            {
+                var packed = XiumiKeyCodec.Pack(data, envelope.Type, envelope.Title);
+                File.WriteAllText(roundTripPath, packed);
+                var again = XiumiKeyCodec.Unpack(packed);
+                var same = XiumiKeyCodec.ToJson(envelope.Data!) == XiumiKeyCodec.ToJson(again.Data!);
+                Console.WriteLine($"roundtrip: bytes={packed.Length} identical={same}");
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"xiumi-key 解析失败：{ex.Message}");
+            return 2;
+        }
+    }
+
+    private static int RunXiumiFill(string keyPath, string? documentPath, string? outputDirectory)
+    {
+        try
+        {
+            if (documentPath is null || !File.Exists(documentPath))
+            {
+                Console.Error.WriteLine("需要一份 .docx 或 .doc 作为填充源");
+                return 2;
+            }
+
+            var template = XiumiKeyCodec.Unpack(File.ReadAllText(keyPath));
+            if (template.Data is not JsonObject templateData)
+            {
+                Console.Error.WriteLine("模板密钥里没有作品数据");
+                return 2;
+            }
+
+            var document = DocumentParser.Parse(documentPath);
+            var paragraphs = document.Paragraphs.Select(p => p.Text).ToList();
+            var filled = XiumiFiller.Fill(templateData, paragraphs, Array.Empty<string>(), document.Title, document.Authors);
+
+            var report = new
+            {
+                document = Path.GetFileName(documentPath),
+                paragraphs = paragraphs.Count,
+                images = document.Images.Count,
+                map = new
+                {
+                    mainColumn = filled.Map.MainColumnPath,
+                    bodyTextSlots = filled.Map.BodyTexts.Count,
+                    bodyImageSlots = filled.Map.BodyImages.Count,
+                    decorImages = filled.Map.DecorImages.Count,
+                    signature = filled.Map.Signature?.Preview,
+                    fixedTexts = filled.Map.FixedTexts.Select(t => t.Preview),
+                },
+                fill = new
+                {
+                    filled.ParagraphsFilled,
+                    filled.ImagesFilled,
+                    filled.TemplateImagesKept,
+                    filled.DocumentImagesDropped,
+                    filled.SignatureFilled,
+                },
+                bodyTextPreview = XiumiTemplateMap.Build((JsonObject)filled.Data).BodyTexts
+                    .Select(t => t.Preview),
+                notes = filled.Notes,
+            };
+
+            Console.WriteLine(JsonSerializer.Serialize(report, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            }));
+
+            if (outputDirectory is not null)
+            {
+                var keyOut = XiumiKeyCodec.Pack((JsonObject)filled.Data, template.Type, document.Title);
+                var target = Path.Combine(outputDirectory, Path.GetFileNameWithoutExtension(documentPath) + ".filled.xiumi-key");
+                Directory.CreateDirectory(outputDirectory);
+                File.WriteAllText(target, keyOut);
+                Console.WriteLine($"filled key -> {target} ({keyOut.Length} chars)");
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"填充失败：{ex.Message}");
+            return 2;
+        }
+    }
 
     private static void PrintHelp()
     {

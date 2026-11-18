@@ -17,7 +17,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        _viewModel = new MainViewModel(Dispatcher);
+        _viewModel = new MainViewModel(Dispatcher, () => this);
         DataContext = _viewModel;
 
         PreviewKeyDown += OnPreviewKeyDown;
@@ -112,6 +112,21 @@ public partial class MainWindow : Window
                 _viewModel.Current.CopyAllCommand.Execute(null);
             }
 
+            return;
+        }
+
+        // Ctrl+1 / Ctrl+2 在两个页面之间切换
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.D1 or Key.NumPad1)
+        {
+            e.Handled = true;
+            _viewModel.PageIndex = 0;
+            return;
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.D2 or Key.NumPad2)
+        {
+            e.Handled = true;
+            _viewModel.PageIndex = 1;
             return;
         }
 

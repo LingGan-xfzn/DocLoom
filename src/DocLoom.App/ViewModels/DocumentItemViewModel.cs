@@ -45,6 +45,8 @@ public sealed class DocumentItemViewModel : ObservableObject
             Captions.Add(caption);
         }
 
+        BuildBodyFlow(document);
+
         CopyAllCommand = new AsyncRelayCommand(CopyAllAsync);
         CopyBodyCommand = new AsyncRelayCommand(CopyBodyAsync);
         CopyTitleCommand = new AsyncRelayCommand(CopyTitleAsync);
@@ -65,6 +67,9 @@ public sealed class DocumentItemViewModel : ObservableObject
 
     public ObservableCollection<ImageItemViewModel> Images { get; } = new();
 
+    /// <summary>正文流：段落与图片组交错，界面按它渲染并标注图片位置。</summary>
+    public ObservableCollection<object> BodyFlow { get; } = new();
+
     public ObservableCollection<string> Captions { get; } = new();
 
     public AsyncRelayCommand CopyAllCommand { get; }
@@ -82,6 +87,52 @@ public sealed class DocumentItemViewModel : ObservableObject
     public RelayCommand ClearSelectionCommand { get; }
 
     public RelayCommand InvertSelectionCommand { get; }
+
+    private void BuildBodyFlow(ParsedDocument document)
+    {
+        if (document.BodyFlow.Count == 0)
+        {
+            // 兼容：没有 flow 时退化成纯段落列表。
+            foreach (var paragraph in Paragraphs)
+            {
+                BodyFlow.Add(paragraph);
+            }
+
+            return;
+        }
+
+        var paragraphCursor = 0;
+        var imageByAsset = Images.ToDictionary(i => i.Asset, i => i);
+        var totalParagraphs = Paragraphs.Count;
+
+        foreach (var entry in document.BodyFlow)
+        {
+            if (entry.Kind == Core.Model.BodyFlowKind.Paragraph)
+            {
+                if (paragraphCursor < Paragraphs.Count)
+                {
+                    BodyFlow.Add(Paragraphs[paragraphCursor]);
+                    paragraphCursor++;
+                }
+
+                continue;
+            }
+
+            var group = new List<ImageItemViewModel>(entry.Images.Count);
+            foreach (var asset in entry.Images)
+            {
+                if (imageByAsset.TryGetValue(asset, out var viewModel))
+                {
+                    group.Add(viewModel);
+                }
+            }
+
+            if (group.Count > 0)
+            {
+                BodyFlow.Add(new ImageGroupViewModel(group, paragraphCursor, totalParagraphs));
+            }
+        }
+    }
 
     public string FileName => Model.FileName;
 

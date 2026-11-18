@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using System.Diagnostics;
 using System.Windows.Threading;
 using DocLoom.App.Services;
@@ -34,10 +35,12 @@ public sealed class MainViewModel : ObservableObject
     private ToastKind _toastKind = ToastKind.Info;
     private string _errorMessage = string.Empty;
     private bool _dragActive;
+    private int _pageIndex;
 
-    public MainViewModel(Dispatcher dispatcher)
+    public MainViewModel(Dispatcher dispatcher, Func<Window?>? ownerProvider = null)
     {
         _dispatcher = dispatcher;
+        Layout = new LayoutViewModel(this, ownerProvider ?? (() => null));
         _toastTimer = new DispatcherTimer(DispatcherPriority.Normal, dispatcher)
         {
             Interval = TimeSpan.FromSeconds(3.6),
@@ -75,6 +78,47 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public ObservableCollection<DocumentItemViewModel> RecentDocuments { get; } = new();
+
+    /// <summary>「公众号排版」页的视图模型。</summary>
+    public LayoutViewModel Layout { get; }
+
+    /// <summary>0 = 文档处理，1 = 公众号排版。</summary>
+    public int PageIndex
+    {
+        get => _pageIndex;
+        set
+        {
+            if (SetProperty(ref _pageIndex, value))
+            {
+                OnPropertyChanged(nameof(IsDocumentPage));
+                OnPropertyChanged(nameof(IsLayoutPage));
+            }
+        }
+    }
+
+    public bool IsDocumentPage
+    {
+        get => _pageIndex == 0;
+        set
+        {
+            if (value)
+            {
+                PageIndex = 0;
+            }
+        }
+    }
+
+    public bool IsLayoutPage
+    {
+        get => _pageIndex == 1;
+        set
+        {
+            if (value)
+            {
+                PageIndex = 1;
+            }
+        }
+    }
 
     public DocumentItemViewModel? Current
     {
