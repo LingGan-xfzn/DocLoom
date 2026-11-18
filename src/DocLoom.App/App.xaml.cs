@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 
@@ -5,6 +6,11 @@ namespace DocLoom.App;
 
 public partial class App : Application
 {
+    private static readonly string LogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "DocLoom",
+        "error.log");
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -19,11 +25,31 @@ public partial class App : Application
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        MessageBox.Show(
-            $"出现了一个未预期的错误：{Environment.NewLine}{e.Exception.Message}",
-            "DocLoom",
-            MessageBoxButton.OK,
-            MessageBoxImage.Warning);
+        // 记录到日志并在界面内提示，不弹模态框打断操作。
+        WriteLog(e.Exception);
+
+        if (MainWindow?.DataContext is ViewModels.MainViewModel viewModel)
+        {
+            viewModel.ShowToast($"操作未完成：{e.Exception.Message}", ViewModels.ToastKind.Error);
+        }
+
         e.Handled = true;
+    }
+
+    private static void WriteLog(Exception exception)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+            File.AppendAllText(
+                LogPath,
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {exception}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 }

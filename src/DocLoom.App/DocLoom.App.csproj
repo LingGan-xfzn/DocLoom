@@ -11,7 +11,7 @@
     <RootNamespace>DocLoom.App</RootNamespace>
     <ApplicationIcon>Assets\docloom.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>DocLoom contributors</Authors>
     <Company>DocLoom</Company>
     <Product>DocLoom 文档织机</Product>
@@ -40,6 +40,7 @@
 
   <ItemGroup>
     <Resource Include="Assets\docloom.ico" />
+    <Resource Include="Assets\*.png" />
   </ItemGroup>
 
 </Project>

@@ -18,7 +18,11 @@
 
 ## 界面
 
-Dark Ink Studio：墨黑三层底色、青绿强调色、琥珀动作色、无 emoji 矢量图标、150–220ms 缓动、键盘焦点可见、正文对比度 ≥ 8:1。设计令牌与取舍记录在 [`design-system/doclom/MASTER.md`](design-system/doclom/MASTER.md)。
+Dark Ink Studio：墨黑三层底色、青绿强调色、琥珀单一动作色、无 emoji 矢量图标、键盘焦点可见、正文对比度 ≥ 8:1。
+
+动效统一成一套语言：按钮悬停上浮 1px、卡片高光层 140ms 淡入、列表项按 26ms 步进错峰上浮、缩略图 320ms 渐显、勾选对勾带回弹、Toast 缩放弹出、滚轮改为 260ms 缓动的平滑滚动。所有时长与缓动集中在 `Themes/Motion.xaml`，不接受各处自定义。
+
+空态与图标另有插画资产（`Assets/empty-welcome.png`、`empty-images.png`、`docloom.ico`），由 agnes-image-2.5-flash 生成后经圆角 alpha 与径向遮罩处理融入深色底。设计令牌、动效参数与资产处理流程记录在 [`design-system/doclom/MASTER.md`](design-system/doclom/MASTER.md)。
 
 ## 使用
 

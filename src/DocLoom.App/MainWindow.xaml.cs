@@ -1,6 +1,9 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using DocLoom.App.Services;
 using DocLoom.App.ViewModels;
 using DocLoom.Core;
@@ -20,17 +23,61 @@ public partial class MainWindow : Window
         PreviewKeyDown += OnPreviewKeyDown;
         StateChanged += OnWindowStateChanged;
         Loaded += OnLoaded;
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         WindowEffects.Apply(this);
+        PlayWindowIntro();
 
         var files = Environment.GetCommandLineArgs().Skip(1).Where(File.Exists).ToList();
         if (files.Count > 0)
         {
             await _viewModel.LoadFilesAsync(files);
         }
+    }
+
+    /// <summary>文档切换：标题卡、右栏、段落与图片依次入场。</summary>
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(MainViewModel.Current) || _viewModel.Current is null)
+        {
+            return;
+        }
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(PlayDocumentIntro));
+    }
+
+    private void PlayDocumentIntro()
+    {
+        StaggerAnimation.FadeRise(TitleCard, 0.45, 10);
+        StaggerAnimation.FadeRise(RightPanel, 0.5, 8, 60);
+        StaggerAnimation.Play(ParagraphList, maxItems: 12, stepMs: 26, riseDistance: 10);
+        StaggerAnimation.Play(ImageList, maxItems: 12, stepMs: 24, riseDistance: 8);
+    }
+
+    /// <summary>窗口首次出现：轻微上浮 + 提亮，避免"啪"地弹出来。</summary>
+    private void PlayWindowIntro()
+    {
+        if (RootBorder.RenderTransform is not TranslateTransform transform || transform.IsFrozen)
+        {
+            transform = new TranslateTransform(0, 0);
+            RootBorder.RenderTransform = transform;
+        }
+
+        RootBorder.Opacity = 1;
+        RootBorder.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0.62, 1, TimeSpan.FromMilliseconds(340))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            FillBehavior = FillBehavior.Stop,
+        });
+
+        transform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(12, 0, TimeSpan.FromMilliseconds(340))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            FillBehavior = FillBehavior.Stop,
+        });
     }
 
     private void OnWindowStateChanged(object? sender, EventArgs e)

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:DocLoom.App.ViewModels"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:svc="clr-namespace:DocLoom.App.Services"
         Title="DocLoom 文档织机"
         Width="1400" Height="890"
         MinWidth="1160" MinHeight="740"
@@ -116,81 +117,108 @@
 
         <!-- 正文段落卡 -->
         <DataTemplate x:Key="ParagraphTemplate" DataType="{x:Type vm:ParagraphItemViewModel}">
-            <Border x:Name="Card"
-                    Background="{StaticResource CardBrush}"
-                    BorderBrush="{StaticResource BorderSoftBrush}"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="14,12"
-                    Margin="0,0,0,10">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+            <Grid x:Name="CardRoot" Margin="0,0,0,10" Background="Transparent">
+                <Border x:Name="CardBase"
+                        Background="{StaticResource CardBrush}"
+                        BorderBrush="{StaticResource BorderSoftBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12" />
+                <Border x:Name="CardHover"
+                        Background="{StaticResource CardHoverBrush}"
+                        BorderBrush="{StaticResource BorderStrongBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Opacity="0" />
+                <Border Padding="14,12" Background="Transparent">
+    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0"
-                            Width="28" Height="28"
-                            CornerRadius="8"
-                            Background="{StaticResource SurfaceRaisedBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1"
-                            VerticalAlignment="Top"
-                            Margin="0,1,12,0">
-                        <TextBlock Text="{Binding IndexText}"
-                                   FontFamily="{StaticResource MonoFont}"
-                                   FontSize="11"
-                                   Foreground="{StaticResource TextMutedBrush}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
-                    </Border>
+                        <Border Grid.Column="0"
+                                Width="28" Height="28"
+                                CornerRadius="8"
+                                Background="{StaticResource SurfaceRaisedBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                VerticalAlignment="Top"
+                                Margin="0,1,12,0">
+                            <TextBlock Text="{Binding IndexText}"
+                                       FontFamily="{StaticResource MonoFont}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
 
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="{Binding Text}"
-                                   Style="{StaticResource TextBase}"
-                                   LineHeight="24"
-                                   LineStackingStrategy="BlockLineHeight"
-                                   Foreground="#FFDCE9F0" />
-                        <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
-                            <TextBlock Text="{Binding LengthText}" Style="{StaticResource TextMuted}" />
-                            <Border Style="{StaticResource Chip}"
-                                    Background="{StaticResource SurfaceRaisedBrush}"
-                                    BorderBrush="{StaticResource BorderBrush}"
-                                    Margin="8,0,0,0"
-                                    Padding="6,1"
-                                    Visibility="{Binding HasImages, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="{Binding ImageBadge}"
-                                           FontSize="10.5"
-                                           Foreground="{StaticResource TextMutedBrush}" />
-                            </Border>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="{Binding Text}"
+                                       Style="{StaticResource TextBase}"
+                                       LineHeight="24"
+                                       LineStackingStrategy="BlockLineHeight"
+                                       Foreground="#FFDCE9F0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                                <TextBlock Text="{Binding LengthText}" Style="{StaticResource TextMuted}" />
+                                <Border Style="{StaticResource Chip}"
+                                        Background="{StaticResource SurfaceRaisedBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}"
+                                        Margin="8,0,0,0"
+                                        Padding="6,1"
+                                        Visibility="{Binding HasImages, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="{Binding ImageBadge}"
+                                               FontSize="10.5"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </Border>
+                            </StackPanel>
                         </StackPanel>
-                    </StackPanel>
 
-                    <Button Grid.Column="2"
-                            Style="{StaticResource SubtleButton}"
-                            Command="{Binding CopyCommand}"
-                            AutomationProperties.Name="复制该段落"
-                            VerticalAlignment="Top"
-                            Margin="10,0,0,0"
-                            ToolTip="复制这一段">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource IconCopy}"
-                                  Style="{StaticResource IconStrokeSmall}"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                            <TextBlock x:Name="CopyLabel"
-                                       Text="复制"
-                                       Margin="6,0,0,0"
-                                       FontSize="12"
-                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                        </StackPanel>
-                    </Button>
-                </Grid>
-            </Border>
+                        <Button Grid.Column="2"
+                                Style="{StaticResource SubtleButton}"
+                                Command="{Binding CopyCommand}"
+                                AutomationProperties.Name="复制该段落"
+                                VerticalAlignment="Top"
+                                Margin="10,0,0,0"
+                                ToolTip="复制这一段">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IconCopy}"
+                                      Style="{StaticResource IconStrokeSmall}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock x:Name="CopyLabel"
+                                           Text="复制"
+                                           Margin="6,0,0,0"
+                                           FontSize="12"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+            </Grid>
             <DataTemplate.Triggers>
-                <Trigger SourceName="Card" Property="IsMouseOver" Value="True">
-                    <Setter TargetName="Card" Property="Background" Value="{StaticResource CardHoverBrush}" />
-                    <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+                <Trigger SourceName="CardRoot" Property="IsMouseOver" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="CardHover"
+                                                 Storyboard.TargetProperty="Opacity"
+                                                 To="1" Duration="{StaticResource DurFast}">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseOut" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="CardHover"
+                                                 Storyboard.TargetProperty="Opacity"
+                                                 To="0" Duration="{StaticResource DurBase}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
                 </Trigger>
                 <DataTrigger Binding="{Binding IsCopied}" Value="True">
                     <Setter TargetName="CopyLabel" Property="Text" Value="已复制" />
@@ -232,12 +260,26 @@
 
         <!-- 图片卡 -->
         <DataTemplate x:Key="ImageTemplate" DataType="{x:Type vm:ImageItemViewModel}">
-            <Border x:Name="ImageCard"
-                    Style="{StaticResource InnerCard}"
-                    Margin="0,0,9,9"
-                    Width="158"
-                    ClipToBounds="True">
-                <Grid>
+            <Grid x:Name="ImageRoot" Width="158" Margin="0,0,9,9" Background="Transparent" ClipToBounds="True">
+                <Border x:Name="ImageBase"
+                        Background="{StaticResource CardBrush}"
+                        BorderBrush="{StaticResource BorderSoftBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12" />
+                <Border x:Name="ImageHover"
+                        Background="{StaticResource CardHoverBrush}"
+                        BorderBrush="{StaticResource BorderStrongBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Opacity="0" />
+                <Border x:Name="SelectRing"
+                        BorderBrush="{StaticResource AccentBrush}"
+                        BorderThickness="1.6"
+                        CornerRadius="12"
+                        Opacity="0"
+                        IsHitTestVisible="False" />
+
+                <Grid Margin="1">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="100" />
                         <RowDefinition Height="Auto" />
@@ -248,7 +290,30 @@
                             <Rectangle.Fill>
                                 <ImageBrush ImageSource="{Binding Thumbnail}" Stretch="UniformToFill" />
                             </Rectangle.Fill>
+                            <Rectangle.Style>
+                                <Style TargetType="Rectangle">
+                                    <Setter Property="Opacity" Value="0" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasThumbnail}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                         To="1"
+                                                                         Duration="{StaticResource DurSlow}">
+                                                            <DoubleAnimation.EasingFunction>
+                                                                <CubicEase EasingMode="EaseOut" />
+                                                            </DoubleAnimation.EasingFunction>
+                                                        </DoubleAnimation>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Rectangle.Style>
                         </Rectangle>
+
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                                     Visibility="{Binding HasThumbnail, Converter={StaticResource InverseBoolToVisibility}}">
                             <Path Data="{StaticResource IconImage}"
@@ -293,14 +358,48 @@
                                    Foreground="{StaticResource TextMutedBrush}" />
                     </StackPanel>
                 </Grid>
-            </Border>
+            </Grid>
             <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                    <Setter TargetName="ImageCard" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                </DataTrigger>
-                <Trigger SourceName="ImageCard" Property="IsMouseOver" Value="True">
-                    <Setter TargetName="ImageCard" Property="Background" Value="{StaticResource CardHoverBrush}" />
+                <Trigger SourceName="ImageRoot" Property="IsMouseOver" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="ImageHover"
+                                                 Storyboard.TargetProperty="Opacity"
+                                                 To="1" Duration="{StaticResource DurFast}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="ImageHover"
+                                                 Storyboard.TargetProperty="Opacity"
+                                                 To="0" Duration="{StaticResource DurBase}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
                 </Trigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="SelectRing"
+                                                 Storyboard.TargetProperty="Opacity"
+                                                 To="1" Duration="0:0:0.18" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="SelectRing"
+                                                 Storyboard.TargetProperty="Opacity"
+                                                 To="0" Duration="{StaticResource DurBase}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.ExitActions>
+                </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
 
@@ -309,7 +408,10 @@
             <Setter Property="Opacity" Value="0" />
             <Setter Property="RenderTransform">
                 <Setter.Value>
-                    <TranslateTransform Y="10" />
+                    <TransformGroup>
+                        <ScaleTransform ScaleX="0.97" ScaleY="0.97" />
+                        <TranslateTransform Y="12" />
+                    </TransformGroup>
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
@@ -317,9 +419,22 @@
                     <DataTrigger.EnterActions>
                         <BeginStoryboard>
                             <Storyboard>
-                                <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.18" />
-                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
-                                                 To="0" Duration="0:0:0.24">
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 To="1" Duration="{StaticResource DurFast}" />
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                                 To="1" Duration="{StaticResource DurBase}">
+                                    <DoubleAnimation.EasingFunction>
+                                        <BackEase EasingMode="EaseOut" Amplitude="0.3" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                                 To="1" Duration="{StaticResource DurBase}">
+                                    <DoubleAnimation.EasingFunction>
+                                        <BackEase EasingMode="EaseOut" Amplitude="0.3" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
+                                                 To="0" Duration="{StaticResource DurBase}">
                                     <DoubleAnimation.EasingFunction>
                                         <CubicEase EasingMode="EaseOut" />
                                     </DoubleAnimation.EasingFunction>
@@ -330,7 +445,10 @@
                     <DataTrigger.ExitActions>
                         <BeginStoryboard>
                             <Storyboard>
-                                <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.16" />
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 To="0" Duration="{StaticResource DurFast}" />
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
+                                                 To="8" Duration="{StaticResource DurFast}" />
                             </Storyboard>
                         </BeginStoryboard>
                     </DataTrigger.ExitActions>
@@ -361,15 +479,10 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="18,0,0,0" VerticalAlignment="Center">
-                    <Border Width="28" Height="28" CornerRadius="9" Background="{StaticResource AccentGradientBrush}">
-                        <Path Data="{StaticResource IconLayers}"
-                              Style="{StaticResource IconStroke}"
-                              Width="16" Height="16"
-                              Stroke="{StaticResource AccentInkBrush}"
-                              StrokeThickness="1.9"
-                              HorizontalAlignment="Center"
-                              VerticalAlignment="Center" />
-                    </Border>
+                    <Image Width="30" Height="30"
+                           Source="Assets/doclom-256.png"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           SnapsToDevicePixels="True" />
                     <TextBlock Text="DocLoom" Margin="10,0,0,0" VerticalAlignment="Center"
                                FontFamily="{StaticResource DisplayFont}"
                                FontSize="15" FontWeight="SemiBold"
@@ -584,19 +697,20 @@
                 </Border>
 
                 <!-- 区段：中栏 -->
-                <Grid Grid.Column="1" Margin="12,0">
+                <Grid x:Name="Stage" Grid.Column="1" Margin="12,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
                     <!-- 标题与署名 -->
-                    <Border Grid.Row="0" Style="{StaticResource PanelCard}" Padding="0"
+                    <Border x:Name="TitleCard" Grid.Row="0" Style="{StaticResource PanelCard}" Padding="0"
                             Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}">
                         <Grid>
                             <Border Height="3" VerticalAlignment="Top" CornerRadius="16,16,0,0"
                                     Background="{StaticResource AccentGradientBrush}" Opacity="0.85" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="330" Padding="20,18,20,16">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="330" Padding="20,18,20,16"
+                                          svc:SmoothScroll.IsEnabled="True">
                                 <StackPanel>
                                     <Grid>
                                         <StackPanel Orientation="Horizontal">
@@ -760,8 +874,10 @@
                         </Grid>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0"
+                                      svc:SmoothScroll.IsEnabled="True"
                                       Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}">
-                            <ItemsControl ItemsSource="{Binding Current.Paragraphs}"
+                            <ItemsControl x:Name="ParagraphList"
+                                          ItemsSource="{Binding Current.Paragraphs}"
                                           ItemTemplate="{StaticResource ParagraphTemplate}"
                                           Margin="0,0,0,6" />
                         </ScrollViewer>
@@ -769,34 +885,59 @@
                         <!-- 欢迎引导 -->
                         <Border Grid.Row="0" Grid.RowSpan="2"
                                 Style="{StaticResource PanelCard}"
+                                Padding="0"
                                 Visibility="{Binding HasNoDocument, Converter={StaticResource BoolToVisibility}}">
                             <Grid>
-                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420">
-                                    <Border Width="64" Height="64" CornerRadius="20"
-                                            Background="{StaticResource AccentSoftBrush}"
-                                            BorderBrush="#3D2DD4BF" BorderThickness="1"
-                                            HorizontalAlignment="Center">
-                                        <Path Data="{StaticResource IconSpark}"
-                                              Style="{StaticResource IconStroke}"
-                                              Width="28" Height="28"
-                                              Stroke="{StaticResource AccentBrush}"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="214" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" CornerRadius="16,16,0,0" ClipToBounds="True">
+                                    <Grid>
+                                        <Image Source="Assets/empty-welcome.png"
+                                               Stretch="UniformToFill"
+                                               RenderOptions.BitmapScalingMode="HighQuality">
+                                            <Image.OpacityMask>
+                                                <RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4"
+                                                                     RadiusX="0.62" RadiusY="0.72">
+                                                    <GradientStop Color="#FFFFFFFF" Offset="0" />
+                                                    <GradientStop Color="#E6FFFFFF" Offset="0.45" />
+                                                    <GradientStop Color="#4DFFFFFF" Offset="0.78" />
+                                                    <GradientStop Color="#00FFFFFF" Offset="1" />
+                                                </RadialGradientBrush>
+                                            </Image.OpacityMask>
+                                        </Image>
+
+                                        <!-- 底部融进面板底色，避免出现硬边 -->
+                                        <Border>
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0.52" EndPoint="0,1">
+                                                    <GradientStop Color="#000F1820" Offset="0" />
+                                                    <GradientStop Color="#B30F1820" Offset="0.62" />
+                                                    <GradientStop Color="#FF0F1820" Offset="1" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                            MaxWidth="442" Margin="26,0,26,26">
                                     <TextBlock Text="把文档拖进来，剩下的交给我"
                                                FontFamily="{StaticResource DisplayFont}"
                                                FontSize="20" FontWeight="SemiBold"
                                                HorizontalAlignment="Center"
-                                               Margin="0,20,0,0"
                                                Foreground="{StaticResource TextPrimaryBrush}" />
                                     <TextBlock Text="文档不会离开这台电脑。解析、拆分、导出全部在本机完成。"
                                                FontSize="12.5"
                                                TextAlignment="Center"
                                                TextWrapping="Wrap"
-                                               Margin="0,9,0,0"
+                                               Margin="0,8,0,0"
                                                Foreground="{StaticResource TextMutedBrush}" />
 
-                                    <StackPanel Margin="0,26,0,0">
-                                        <Border Style="{StaticResource InnerCard}" Padding="14,11" Margin="0,0,0,8">
+                                    <StackPanel Margin="0,20,0,0">
+                                        <Border Style="{StaticResource InnerCard}" Padding="14,10" Margin="0,0,0,8">
                                             <StackPanel Orientation="Horizontal">
                                                 <Border Width="24" Height="24" CornerRadius="7" Background="{StaticResource SurfaceRaisedBrush}">
                                                     <TextBlock Text="1" FontSize="11" FontWeight="SemiBold"
@@ -805,10 +946,11 @@
                                                 </Border>
                                                 <TextBlock Text="拖入 .docx 或 .doc，也可以点击左侧选择文件"
                                                            Margin="10,0,0,0" VerticalAlignment="Center"
+                                                           TextWrapping="Wrap"
                                                            FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
                                             </StackPanel>
                                         </Border>
-                                        <Border Style="{StaticResource InnerCard}" Padding="14,11" Margin="0,0,0,8">
+                                        <Border Style="{StaticResource InnerCard}" Padding="14,10" Margin="0,0,0,8">
                                             <StackPanel Orientation="Horizontal">
                                                 <Border Width="24" Height="24" CornerRadius="7" Background="{StaticResource SurfaceRaisedBrush}">
                                                     <TextBlock Text="2" FontSize="11" FontWeight="SemiBold"
@@ -817,10 +959,11 @@
                                                 </Border>
                                                 <TextBlock Text="自动按排版拆出标题、正文段落与文末署名"
                                                            Margin="10,0,0,0" VerticalAlignment="Center"
+                                                           TextWrapping="Wrap"
                                                            FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
                                             </StackPanel>
                                         </Border>
-                                        <Border Style="{StaticResource InnerCard}" Padding="14,11">
+                                        <Border Style="{StaticResource InnerCard}" Padding="14,10">
                                             <StackPanel Orientation="Horizontal">
                                                 <Border Width="24" Height="24" CornerRadius="7" Background="{StaticResource SurfaceRaisedBrush}">
                                                     <TextBlock Text="3" FontSize="11" FontWeight="SemiBold"
@@ -829,6 +972,7 @@
                                                 </Border>
                                                 <TextBlock Text="勾选图片一键下载，命名形如 20261117_1.jpg"
                                                            Margin="10,0,0,0" VerticalAlignment="Center"
+                                                           TextWrapping="Wrap"
                                                            FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
                                             </StackPanel>
                                         </Border>
@@ -840,7 +984,7 @@
                 </Grid>
 
                 <!-- 区段：右栏 -->
-                <Border Grid.Column="2" Style="{StaticResource PanelCard}" Padding="0">
+                <Border x:Name="RightPanel" Grid.Column="2" Style="{StaticResource PanelCard}" Padding="0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -878,8 +1022,10 @@
                             </StackPanel>
                         </Grid>
 
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,0,7,0">
-                            <ItemsControl ItemsSource="{Binding Current.Images}"
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,0,7,0"
+                                      svc:SmoothScroll.IsEnabled="True">
+                            <ItemsControl x:Name="ImageList"
+                                          ItemsSource="{Binding Current.Images}"
                                           ItemTemplate="{StaticResource ImageTemplate}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -891,13 +1037,21 @@
 
                         <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
                                     Visibility="{Binding Current.HasImages, Converter={StaticResource InverseBoolToVisibility}}">
-                            <Path Data="{StaticResource IconImage}"
-                                  Style="{StaticResource IconStroke}"
-                                  Width="30" Height="30"
-                                  Stroke="{StaticResource BorderStrongBrush}"
-                                  HorizontalAlignment="Center" />
+                            <Image Source="Assets/empty-images.png"
+                                   Width="176" Height="176"
+                                   Opacity="0.92"
+                                   RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image.OpacityMask>
+                                    <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5"
+                                                         RadiusX="0.58" RadiusY="0.58">
+                                        <GradientStop Color="#FFFFFFFF" Offset="0" />
+                                        <GradientStop Color="#00FFFFFF" Offset="1" />
+                                    </RadialGradientBrush>
+                                </Image.OpacityMask>
+                            </Image>
                             <TextBlock Text="这份文档没有可导出的图片"
-                                       FontSize="11.5" Margin="0,10,0,0"
+                                       FontSize="11.5" Margin="0,2,0,0"
+                                       HorizontalAlignment="Center"
                                        Foreground="{StaticResource TextMutedBrush}" />
                         </StackPanel>
 
@@ -1037,17 +1191,83 @@
             </Border>
 
             <!-- ================= 忙碌遮罩 ================= -->
-            <Grid Grid.Row="1" Grid.RowSpan="2"
+            <Grid x:Name="BusyOverlay" Grid.Row="1" Grid.RowSpan="2"
                   Background="#A6080D12"
-                  Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}">
-                <Border Background="{StaticResource SurfaceRaisedBrush}"
+                  Opacity="0"
+                  IsHitTestVisible="{Binding IsBusy}">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                             To="1" Duration="0:0:0.18" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                             To="0" Duration="{StaticResource DurFast}" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Border x:Name="BusyCard"
+                        Background="{StaticResource SurfaceRaisedBrush}"
                         BorderBrush="{StaticResource BorderStrongBrush}"
                         BorderThickness="1"
                         CornerRadius="16"
                         Padding="26,22"
                         Width="360"
                         HorizontalAlignment="Center"
-                        VerticalAlignment="Center">
+                        VerticalAlignment="Center"
+                        RenderTransformOrigin="0.5,0.5">
+                    <Border.RenderTransform>
+                        <ScaleTransform ScaleX="0.96" ScaleY="0.96" />
+                    </Border.RenderTransform>
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1" Duration="0:0:0.28">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <BackEase EasingMode="EaseOut" Amplitude="0.3" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1" Duration="0:0:0.28">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <BackEase EasingMode="EaseOut" Amplitude="0.3" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.96" Duration="0:0:0.16" />
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="0.96" Duration="0:0:0.16" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="32" ShadowDepth="10" Direction="270" Opacity="0.6" Color="#FF000000" />
                     </Border.Effect>

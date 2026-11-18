@@ -99,10 +99,44 @@
 
 ## 6. 动效
 
-- 时长：hover 160ms，进入 180–240ms，退出 150ms。
-- 缓动：`CubicEase EaseOut`（进入）。
-- 只动 `Opacity` 与 `TranslateTransform`，不动宽高，避免布局抖动。
-- 忙碌指示器为 1.6s 线性旋转；解析与导出都在后台线程，界面不冻结。
+所有时长与缓动集中在 `Themes/Motion.xaml`，组件里禁止写裸时长。
+
+| 令牌 | 值 | 用途 |
+|---|---|---|
+| `DurInstant` | 90ms | 按压、图标切换 |
+| `DurFast` | 140ms | 悬停进入/退出、Toast 淡出 |
+| `DurBase` | 200ms | 面板淡入、遮罩淡出 |
+| `DurSlow` | 320ms | 缩略图渐显、窗口入场 |
+| `EaseOut` | CubicEase EaseOut | 位移、透明度默认 |
+| `EaseBackOut` | BackEase 0.35 | 勾选对勾、Toast 弹出 |
+
+具体行为：
+
+- **按钮**：悬停 140ms 提亮到 88% 并上浮 1px（`TranslateTransform`），按压下沉 0.5px + 74% 透明；退出 180ms 归位。
+- **卡片悬停**：不直接改 `Background`（共享画刷无法安全动画，且换色是瞬切的）。每张卡片是「底色层 + 高光层 + 内容层」三叠，悬停只对高光层做 140ms 透明度过渡。
+- **列表入场**：文档切换时标题卡 240ms 淡入上浮、右栏延迟 60ms 跟上、段落项按 26ms 步进依次上浮 10px、图片项按 24ms 步进（`Services/StaggerAnimation`）。
+- **缩略图**：解码完成后 320ms 渐显，替代原来的"突然出现"。
+- **勾选**：填充层 160ms 淡入，对勾 240ms 回弹缩放（0.7→1）。
+- **Toast**：180ms 淡入 + 240ms 缩放 0.97→1（回弹）+ 位移 12→0；退出 140ms 收回到 8px 并淡出。
+- **忙碌遮罩**：遮罩 180ms 淡入、卡片 280ms 回弹放大；退出 140ms。
+- **滚动**：滚轮从"跳 3 行"改为 260ms easeOutCubic 的连续位移（每格 104px）。
+- **窗口**：首次显示 340ms 从 62% 提亮 + 上浮 12px。
+
+### 踩坑记录
+
+`ScrollViewer.VerticalOffset` 的依赖属性元数据带 `IsAnimationProhibited`，直接 `BeginAnimation` 会抛异常（本次曾据此弹过一次运行时错误）。平滑滚动改用 `CompositionTarget.Rendering` 逐帧插值并 `ScrollToVerticalOffset`，同时用附加属性保存进行中的 tween，新滚动先取消旧的，控件卸载时解绑。
+
+## 6.1 图像资产
+
+| 文件 | 用途 | 来源与处理 |
+|---|---|---|
+| `Assets/empty-welcome.png` | 无文档时的欢迎插画（纸张层叠被拉开的意象） | agnes-image-2.5-flash 生成 1792×1024 → 按内容 bbox 裁切并留 6%/10% 边 → 缩放到 1100 宽 |
+| `Assets/empty-images.png` | 右栏无图片空态（发光相框） | 同模型生成 1024×1024 → 居中裁切留白 → 640×640 |
+| `Assets/docloom.ico` | 应用图标（三层纸叠 + 青绿发光边 + 琥珀层） | 同模型生成 1024×1024 → PIL 加 20% 圆角 alpha → 导出 16/24/32/48/64/128/256 多尺寸 ico |
+
+融合方式（WPF 侧）：插画一律套 `RadialGradientBrush` 的 `OpacityMask` 让边缘溶进底色，欢迎插画再叠一层从 `#000F1820` 到 `#FF0F1820` 的线性渐变，消除图片下沿的硬边。图标本身带圆角 alpha，标题栏直接以 30×30 使用。
+
+生成提示词要点：深色近黑底（#0A0F14 / #0C141B）、青绿 #2DD4BF 细发光线条、少量琥珀 #F5A524 点缀、等距/线框、大量留白、无文字无字母；图标追加「16px 仍可辨识的强轮廓」。
 
 ## 7. 无障碍
 
