@@ -33,7 +33,7 @@ public static partial class XiumiComposer
     private static partial Regex ParagraphRegex();
 
     /// <summary>模板署名块里给填写者看的括号说明，例如「（这是示例…）」。成品里不该出现。</summary>
-    [GeneratedRegex(@"（[^）]*(?:示例|没有提供|默认填写|按照此|自行填写|请填写)[^）]*）")]
+    [GeneratedRegex(@"（[^）]*(?:示例|没有提供|默认填写|按照此|自行填写|请填写|用户自己填写|统一)[^）]*）")]
     private static partial Regex NoteRegex();
 
     public const string DefaultIndent = "&nbsp; &nbsp; &nbsp; ";
@@ -132,7 +132,15 @@ public static partial class XiumiComposer
             }
         }
 
-        // 2. 署名块：沿用模板样式，只替换供稿行。
+        // 2. 固定区：往期推荐、分割线等排版结构原样保留，清掉给填写者看的示例文字。
+        foreach (var block in prototypes.FixedBlocks)
+        {
+            var clone = CloneWithNewUuid(block);
+            SanitizeFixedBlock(clone);
+            items.Add(clone);
+        }
+
+        // 3. 署名块：沿用模板样式，只替换供稿行。
         if (prototypes.Signature is not null)
         {
             var signature = CloneWithNewUuid(prototypes.Signature);
@@ -170,6 +178,11 @@ public static partial class XiumiComposer
         StripRenderCache(data);
 
         result.Notes.Add($"按文档排布重建：{result.TextBlocks} 段文字、{result.ImageBlocks} 张图片。");
+
+        if (prototypes.FixedBlocks.Count > 0)
+        {
+            result.Notes.Add("往期推荐区块已按模板排版保留，两个条目标题是占位文字，在秀米里替换即可。");
+        }
         return result;
     }
 
@@ -177,7 +190,8 @@ public static partial class XiumiComposer
         JsonObject? Text,
         JsonObject? Image,
         JsonObject? Signature,
-        JsonObject? TrailingImage);
+        JsonObject? TrailingImage,
+        List<JsonObject> FixedBlocks);
 
     private static Prototypes CollectPrototypes(JsonArray items)
     {
@@ -236,7 +250,31 @@ public static partial class XiumiComposer
             text = items[lastBodyIndex] as JsonObject;
         }
 
-        return new Prototypes(text, image, signature, trailing);
+        // 固定区：最后一个正文组件之后、署名之前的整段（往期推荐、分割线、装饰带）。
+        // 这些是模板的排版结构，必须原样保留，只是里面的示例文字要清掉。
+        var fixedBlocks = new List<JsonObject>();
+        var bodyEnd = lastBodyIndex;
+        for (var i = bodyEnd + 1; i < items.Count; i++)
+        {
+            if (items[i] is not JsonObject node)
+            {
+                continue;
+            }
+
+            if (HasText(node) && IsSignature(node))
+            {
+                break;
+            }
+
+            if (ReferenceEquals(node, trailing) || (HasImage(node) && signature is null))
+            {
+                continue;
+            }
+
+            fixedBlocks.Add(node);
+        }
+
+        return new Prototypes(text, image, signature, trailing, fixedBlocks);
     }
 
     private static (JsonArray Items, string Path)? FindMainColumn(JsonObject data)
@@ -302,18 +340,49 @@ public static partial class XiumiComposer
                || plain.Contains("审核", StringComparison.Ordinal);
     }
 
-    /// <summary>克隆原型并换一个全新的组件 id：同一份作品里 uuid 不能重复。</summary>
+    /// <summary>克隆原型并重生成所有组件 id：嵌套组件的 uuid 也不能重复。</summary>
     private static JsonObject CloneWithNewUuid(JsonObject prototype)
     {
         var clone = (JsonObject)prototype.DeepClone();
-        if (clone["_comp"] is JsonObject comp)
-        {
-            comp["_$uuid"] = NewComponentId();
-            comp.Remove("_$raHTML");
-        }
-
-        clone.Remove("_$raHTML");
+        ReassignUuids(clone);
+        StripRenderCache(clone);
         return clone;
+    }
+
+    private static void ReassignUuids(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+            {
+                if (obj["_comp"] is JsonObject comp)
+                {
+                    comp["_$uuid"] = NewComponentId();
+                }
+
+                foreach (var pair in obj)
+                {
+                    if (pair.Key is "_comp")
+                    {
+                        continue;
+                    }
+
+                    ReassignUuids(pair.Value);
+                }
+
+                break;
+            }
+
+            case JsonArray array:
+            {
+                foreach (var item in array)
+                {
+                    ReassignUuids(item);
+                }
+
+                break;
+            }
+        }
     }
 
     private static string NewComponentId()
@@ -381,6 +450,61 @@ public static partial class XiumiComposer
 
         txt["text"] = updated;
         return true;
+    }
+
+    /// <summary>
+    /// 固定区里的说明性文字（「这是往期推荐，用户自己填写…」）不是成品内容，
+    /// 换成中性占位，等用户自己在秀米里替换；其余括号说明直接删除。
+    /// </summary>
+    private static void SanitizeFixedBlock(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+            {
+                if (obj["txt1"] is JsonObject txt && txt["text"] is JsonValue value
+                    && value.TryGetValue<string>(out var html))
+                {
+                    var plain = XiumiSlotAnalyzer.StripHtml(html);
+                    if (plain.Contains("用户自己填写", StringComparison.Ordinal)
+                        || plain.Contains("这是往期推荐", StringComparison.Ordinal))
+                    {
+                        txt["text"] = "<p>往期推荐标题</p>";
+                    }
+                    else if (NoteRegex().IsMatch(html))
+                    {
+                        var cleaned = NoteRegex().Replace(html, string.Empty);
+                        txt["text"] = ParagraphRegex().Replace(cleaned, m =>
+                        {
+                            var inner = m.Groups["inner"].Value.Trim();
+                            return inner.Length == 0 || inner == "&nbsp;" ? string.Empty : m.Value;
+                        });
+                    }
+                }
+
+                foreach (var pair in obj)
+                {
+                    if (pair.Key is "_comp" or "txt1" or "style" or "_$raHTML")
+                    {
+                        continue;
+                    }
+
+                    SanitizeFixedBlock(pair.Value);
+                }
+
+                break;
+            }
+
+            case JsonArray array:
+            {
+                foreach (var item in array)
+                {
+                    SanitizeFixedBlock(item);
+                }
+
+                break;
+            }
+        }
     }
 
     private static void SetText(JsonObject node, string html)
